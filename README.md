@@ -1,36 +1,38 @@
 # NEXVARY Floating Note
 
-Native Android notes that stay accessible above other apps. Development happens on
-the dev/foundation branch.
+Offline-first Android floating notes, optimized for Arabic and English.
 
-## Version 0.2.0 (development)
+## Version 0.3.0 (development — dev/foundation)
 
-- Draggable circular bubble with edge docking, saved position and a 5-action menu.
-- Floating note editor with resize handle, remembered size, color and autosave.
-- Local SQLite storage with multiple notes, search, pinned sorting and five themes.
-- User-created reminders, scheduled as inexact alarms without special exact-alarm access.
-- Android document-picker export/import of JSON backups (merge-only).
-- English and Arabic localization, no internet or accessibility permission.
+- A draggable circular bubble with quick actions: open, create, copy, paste, stop.
+- Up to four simultaneous floating note editors, independently autosaved and minimized.
+- Resizable editors, five color themes, saved positions, pinned notes and search.
+- Inexact reminders; exported reminders reschedule on restore when still in the future.
+- User-selected **password-encrypted backup** (AES-256-GCM with PBKDF2-HMAC-SHA256,
+  random salt and nonce, authenticated header) in .nfn format.
+- Legacy plain JSON export/import remains optional. **JSON is not encrypted**.
+- Transactional merge import now skips exact duplicate notes.
+- All data stored locally; no INTERNET or accessibility permissions.
 
-## Build and download
+## Install and verification
 
-Java 17, Gradle 8.13 and Android SDK 36:
+Use the dev/foundation [Android CI workflow](https://github.com/nexvary/Floating-Note/actions/workflows/android.yml).
+Download the debug APK artifact of a successful run. It is not a signed production release.
+Build with JDK 17, Gradle 8.13, Android SDK 36:
 
     gradle :app:testDebugUnitTest :app:lintDebug :app:assembleDebug
 
-On successful GitHub Actions runs download the NEXVARY-Floating-Note-debug artifact
-and extract app-debug.apk. Allow Display over other apps, then launch the floating
-bubble from the app. Android 13+ notification permission is required for reminders.
+On the phone grant "Display over other apps", then use the Enable floating note control.
 
-Actions workflow: https://github.com/nexvary/Floating-Note/actions/workflows/android.yml
+## Security and limits
 
-## Privacy
+**Remember your encrypted backup password:** there is no password recovery.
+Wrong passwords or changed ciphertext are rejected before importing any notes.
+Encryption uses a passphrase derived key and authenticated AES-GCM; do not share
+passwords through GitHub. Plain JSON backups are not encrypted.
 
-Notes stay in an on-device SQLite database. An exported JSON backup is PLAINTEXT;
-only save it to a trusted location. Import merges rather than overwrites, and repeated
-imports may duplicate notes. There is no server, networking permission or telemetry.
+Copy/paste act on note text and Android ClipboardManager; the app cannot inject
+text into another app's input field. Reminders are inexact and Android may delay them.
+Device testing is still mandatory, including focus/overlay behavior and Android 15+.
 
-Reminders are not exact to the minute because the system may defer inexact alarms.
-See docs/IMPLEMENTATION.md for the validation checklist and open limitations.
-
-The reference APK was examined for product comparisons; the code here is original.
+See [implementation tracker](docs/IMPLEMENTATION.md) for verified/pending status.

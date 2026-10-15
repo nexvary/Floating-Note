@@ -8,6 +8,8 @@ import android.app.TimePickerDialog
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
+import android.text.InputType
+import android.widget.Toast
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
@@ -28,6 +30,8 @@ class MainActivity : Activity() {
         const val EXTRA_OPEN_NOTE = "open_note"
         private const val REQUEST_EXPORT = 310
         private const val REQUEST_IMPORT = 311
+        private const val REQUEST_SECURE_EXPORT = 312
+        private const val REQUEST_SECURE_IMPORT = 313
     }
 
     private lateinit var database: NoteStore
@@ -177,6 +181,23 @@ class MainActivity : Activity() {
         archiveBar.addView(action(getString(R.string.import_notes), false) { importNotes() },
             LinearLayout.LayoutParams(0, -2, 1f))
         content.addView(archiveBar)
+        content.addSpace(this, 10)
+        val secureBar = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        secureBar.addView(action(getString(R.string.export_secure), true) {
+            startActivityForResult(Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
+                addCategory(Intent.CATEGORY_OPENABLE)
+                type = "application/octet-stream"
+                putExtra(Intent.EXTRA_TITLE, "nexvary-protected-notes.nfn")
+            }, REQUEST_SECURE_EXPORT)
+        }, LinearLayout.LayoutParams(0, -2, 1f))
+        secureBar.addView(android.view.View(this), LinearLayout.LayoutParams(dp(10), 1))
+        secureBar.addView(action(getString(R.string.import_secure), false) {
+            startActivityForResult(Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+                addCategory(Intent.CATEGORY_OPENABLE)
+                type = "*/*"
+            }, REQUEST_SECURE_IMPORT)
+        }, LinearLayout.LayoutParams(0, -2, 1f))
+        content.addView(secureBar)
         content.addSpace(this, 24)
 
         val section = LinearLayout(this).apply {
@@ -372,8 +393,14 @@ class MainActivity : Activity() {
     @Deprecated("Uses platform activity-result mechanism without external dependencies.")
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
-        val uri = data?.data ?: return
         if (resultCode != RESULT_OK) return
+        val uri = data?.data ?: return
+        if (requestCode == REQUEST_SECURE_EXPORT || requestCode == REQUEST_SECURE_IMPORT) {
+            askArchivePassword(requestCode == REQUEST_SECURE_EXPORT) { password ->
+                runSecureArchive(requestCode, uri, password)
+            }
+            return
+        }
         try {
             if (requestCode == REQUEST_EXPORT) {
                 contentResolver.openOutputStream(uri)?.use { NoteArchive.export(database.all(), it) }
@@ -396,4 +423,102 @@ class MainActivity : Activity() {
                 .show()
         }
     }
+
+    private fun askArchivePassword(export: Boolean, submit: (CharArray) -> Unit) {
+        fun field(hintRes: Int): EditText = EditText(this).apply {
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
+            hint = getString(hintRes)
+            isSingleLine = true
+        }
+        val password = field(R.string.backup_password)
+        val confirm = if (export) field(R.string.confirm_backup_password) else null
+        val container = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(22), dp(10), dp(22), dp(6))
+            addView(password)
+            if (confirm != null) addView(confirm)
+        }
+        val dialog = AlertDialog.Builder(this)
+            .setTitle(if (export) R.string.export_secure else R.string.import_secure)
+            .setMessage(if (export) R.string.backup_password_hint else R.string.restore_password_hint)
+            .setView(container)
+            .setPositiveButton(android.R.string.ok, null)
+            .setNegativeButton(R.string.cancel, null)
+            .create()
+        dialog.setOnShowListener {
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+                val typed = password.text
+                val pass = CharArray(typed.length) { index -> typed[index] }
+                if (pass.isEmpty() || (export && pass.size < 10)) {
+                    pass.fill('\u0000')
+                    Toast.makeText(this, R.string.password_too_short, Toast.LENGTH_LONG).show()
+                    return@setOnClickListener
+                }
+                if (confirm != null) {
+                    val repeated = confirm.text
+                    val check = CharArray(repeated.length) { index -> repeated[index] }
+                    val matches = pass.contentEquals(check)
+                    check.fill('\u0000')
+                    if (!matches) {
+                        pass.fill('\u0000')
+                        Toast.makeText(this, R.string.password_mismatch, Toast.LENGTH_LONG).show()
+                        return@setOnClickListener
+                    }
+                }
+                dialog.dismiss()
+                submit(pass)
+            }
+        }
+        dialog.show()
+    }
+
+    private fun runSecureArchive(requestCode: Int, uri: Uri, password: CharArray) {
+        Thread {
+            try {
+                val store = NoteStore(applicationContext)
+                val affected = try {
+                    if (requestCode == REQUEST_SECURE_EXPORT) {
+                        val snapshot = store.all()
+                        contentResolver.openOutputStream(uri)?.use {
+                            SecureNoteArchive.export(snapshot, password, it)
+                        } ?: error("Could not open backup file")
+                        -1
+                    } else {
+                        val restored = contentResolver.openInputStream(uri)?.use {
+                            SecureNoteArchive.read(it, password)
+                        } ?: error("Could not read backup file")
+                        val ids = store.importNotes(restored)
+                        ids.forEach { id ->
+                            store.get(id)?.let { ReminderScheduler.schedule(applicationContext, it) }
+                        }
+                        ids.size
+                    }
+                } finally {
+                    store.close()
+                }
+                runOnUiThread {
+                    if (!isFinishing && !isDestroyed) {
+                        displayNotes()
+                        Toast.makeText(this,
+                            if (affected == -1) getString(R.string.export_success)
+                            else getString(R.string.import_success, affected),
+                            Toast.LENGTH_LONG).show()
+                    }
+                }
+            } catch (error: Exception) {
+                runOnUiThread {
+                    if (!isFinishing && !isDestroyed) {
+                        AlertDialog.Builder(this)
+                            .setTitle(R.string.archive_error)
+                            .setMessage(getString(R.string.secure_restore_failed))
+                            .setPositiveButton(android.R.string.ok, null)
+                            .show()
+                    }
+                }
+            } finally {
+                password.fill('\u0000')
+            }
+        }.start()
+    }
+
 }

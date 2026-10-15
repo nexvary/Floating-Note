@@ -48,4 +48,14 @@
     <string name="import_success">Imported %1$d notes</string>
     <string name="archive_error">Backup could not be processed</string>
     <string name="resize_note">Resize note</string>
+    <string name="export_secure">Encrypted backup</string>
+    <string name="import_secure">Restore encrypted</string>
+    <string name="backup_password">Backup password</string>
+    <string name="confirm_backup_password">Confirm password</string>
+    <string name="backup_password_hint">Set a password (10+ characters). Without it, the backup cannot be recovered.</string>
+    <string name="restore_password_hint">Enter the password used when this backup was created.</string>
+    <string name="password_too_short">Enter a password of at least 10 characters.</string>
+    <string name="password_mismatch">Passwords do not match.</string>
+    <string name="secure_restore_failed">Could not process protected backup. Check password, file integrity and available storage.</string>
+    <string name="too_many_windows">You can open up to four floating notes. Minimize one to open another.</string>
 </resources>

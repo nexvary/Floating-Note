@@ -51,12 +51,16 @@ class FloatingNoteService : Service() {
     private val handler = Handler(Looper.getMainLooper())
     private var bubble: ImageView? = null
     private var menu: LinearLayout? = null
-    private var editor: LinearLayout? = null
-    private var content: EditText? = null
+    private data class EditorSession(
+        val view: LinearLayout,
+        val input: EditText,
+        val params: WindowManager.LayoutParams
+    )
+    // Every open note owns its window and save callback; switching notes never discards edits.
+    private val editors = linkedMapOf<Long, EditorSession>()
+    private val pendingSaves = mutableMapOf<Long, Runnable>()
+    private var activeNoteId = -1L
     private var bubbleParams: WindowManager.LayoutParams? = null
-    private var editorParams: WindowManager.LayoutParams? = null
-    private var currentNoteId = -1L
-    private var delayedSave: Runnable? = null
     private var foreground = false
 
     override fun onCreate() {
@@ -259,10 +263,18 @@ class FloatingNoteService : Service() {
 
     private fun openEditor(noteId: Long) {
         removeMenu()
-        closeEditor()
+        editors[noteId]?.let {
+            activeNoteId = noteId
+            it.input.requestFocus()
+            return
+        }
+        if (editors.size >= 4) {
+            toast(R.string.too_many_windows)
+            return
+        }
         val note = notes.get(noteId) ?: return
         var currentColor = NoteColors.valid(note.color)
-        currentNoteId = noteId
+        activeNoteId = noteId
         getSharedPreferences("overlay_state", MODE_PRIVATE).edit()
             .putLong("last_note", noteId).apply()
 
@@ -288,13 +300,13 @@ class FloatingNoteService : Service() {
             heading.setTextColor(NoteColors.accents[currentColor])
         })
         header.addView(icon(R.drawable.ic_copy, getString(R.string.copy), Palette.PANEL, 40) {
-            copyNote()
+            copyNote(noteId)
         })
         header.addView(icon(R.drawable.ic_paste, getString(R.string.paste), Palette.PANEL, 40) {
-            pasteNote()
+            pasteNote(noteId)
         })
         header.addView(icon(R.drawable.ic_collapse, getString(R.string.collapse), Palette.PANEL, 40) {
-            closeEditor()
+            closeEditor(noteId)
         })
         card.addView(header)
         card.addSpace(this, 8)
@@ -331,8 +343,13 @@ class FloatingNoteService : Service() {
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
                 heading.text = NoteText.title(s?.toString().orEmpty())
                     .ifBlank { getString(R.string.untitled) }
-                delayedSave?.let(handler::removeCallbacks)
-                delayedSave = Runnable { saveNow() }.also { handler.postDelayed(it, 350) }
+                pendingSaves.remove(noteId)?.let(handler::removeCallbacks)
+                val save = Runnable {
+                    notes.update(noteId, input.text.toString())
+                    pendingSaves.remove(noteId)
+                }
+                pendingSaves[noteId] = save
+                handler.postDelayed(save, 350)
             }
             override fun afterTextChanged(s: Editable?) = Unit
         })
@@ -346,7 +363,8 @@ class FloatingNoteService : Service() {
             min(dp(240), maxHeight), maxHeight)
         val p = floatingParams(width, height, true).apply {
             x = (screenWidth() - width) / 2
-            y = dp(100)
+            y = (dp(95) + editors.size * dp(40))
+                .coerceAtMost(max(dp(28), screenHeight() - height - dp(60)))
         }
         val minWidth = min(dp(230), maxWidth)
         val minHeight = min(dp(220), maxHeight)
@@ -412,30 +430,24 @@ class FloatingNoteService : Service() {
             }
         }
         wm.addView(card, p)
-        editor = card
-        editorParams = p
-        content = input
+        editors[noteId] = EditorSession(card, input, p)
+        input.setOnFocusChangeListener { _, focused ->
+            if (focused) activeNoteId = noteId
+        }
     }
 
-    private fun saveNow() {
-        val input = content ?: return
-        if (currentNoteId >= 0) notes.update(currentNoteId, input.text.toString())
+    private fun closeEditor(noteId: Long) {
+        pendingSaves.remove(noteId)?.let(handler::removeCallbacks)
+        val session = editors.remove(noteId) ?: return
+        notes.update(noteId, session.input.text.toString())
+        removeWindow(session.view)
+        if (activeNoteId == noteId) activeNoteId = editors.keys.lastOrNull() ?: -1L
     }
 
-    private fun closeEditor() {
-        delayedSave?.let(handler::removeCallbacks)
-        delayedSave = null
-        saveNow()
-        removeWindow(editor)
-        editor = null
-        content = null
-        editorParams = null
-        currentNoteId = -1L
-    }
-
-    private fun copyNote() {
-        val body = content?.text?.toString()
-            ?: notes.get(preferredNote())?.body.orEmpty()
+    private fun copyNote(noteId: Long = activeNoteId) {
+        val id = if (noteId >= 0) noteId else preferredNote()
+        val body = editors[id]?.input?.text?.toString()
+            ?: notes.get(id)?.body.orEmpty()
         if (body.isEmpty()) {
             toast(R.string.nothing_to_copy)
             return
@@ -445,9 +457,11 @@ class FloatingNoteService : Service() {
         toast(R.string.copied)
     }
 
-    private fun pasteNote() {
-        if (content == null) openEditor(preferredNote())
-        val edit = content ?: return
+    private fun pasteNote(noteId: Long = activeNoteId) {
+        val id = if (noteId >= 0) noteId else preferredNote()
+        if (editors[id] == null) openEditor(id)
+        val edit = editors[id]?.input ?: return
+        activeNoteId = id
         edit.requestFocus()
         val value = try {
             val clipboard = getSystemService(CLIPBOARD_SERVICE) as ClipboardManager
@@ -479,7 +493,9 @@ class FloatingNoteService : Service() {
     }
 
     override fun onDestroy() {
-        closeEditor()
+        editors.keys.toList().forEach { closeEditor(it) }
+        pendingSaves.values.forEach(handler::removeCallbacks)
+        pendingSaves.clear()
         removeMenu()
         removeWindow(bubble)
         bubble = null

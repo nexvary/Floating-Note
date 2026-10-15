@@ -48,4 +48,14 @@
     <string name="import_success">تم استيراد %1$d ملاحظة</string>
     <string name="archive_error">تعذّرت معالجة النسخة الاحتياطية</string>
     <string name="resize_note">تغيير حجم الملاحظة</string>
+    <string name="export_secure">نسخة احتياطية مشفرة</string>
+    <string name="import_secure">استعادة نسخة مشفرة</string>
+    <string name="backup_password">كلمة مرور النسخة</string>
+    <string name="confirm_backup_password">تأكيد كلمة المرور</string>
+    <string name="backup_password_hint">اختر كلمة مرور لا تقل عن 10 أحرف. لا يمكن استعادة النسخة دونها.</string>
+    <string name="restore_password_hint">أدخل كلمة المرور المستخدمة عند إنشاء هذه النسخة.</string>
+    <string name="password_too_short">أدخل كلمة مرور من 10 أحرف على الأقل.</string>
+    <string name="password_mismatch">كلمتا المرور غير متطابقتين.</string>
+    <string name="secure_restore_failed">تعذرت معالجة النسخة المشفرة. تحقق من كلمة المرور وسلامة الملف ومساحة التخزين.</string>
+    <string name="too_many_windows">يمكن فتح أربع ملاحظات عائمة. صغّر إحداها لفتح ملاحظة أخرى.</string>
 </resources>

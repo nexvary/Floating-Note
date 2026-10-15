@@ -1,54 +1,40 @@
-# Implementation tracker — NEXVARY Floating Note
+# NEXVARY Floating Note — development status
 
-## 0.2.0 — development branch
+## Version 0.3.0 deliverables (implementation; CI required)
 
-| Requirement | Code | Validation |
+| Requirement | State | Runtime evidence |
 |---|---|---|
-| Circular bubble, docking and actions | implemented | physical device test pending |
-| Copy, paste, create, open and stop | implemented | physical device test pending |
-| Movable editor and collapse | implemented | physical device test pending |
-| Resize editor; remember width and height | implemented | physical device test pending |
-| Multiple notes and autosave | implemented | physical device test pending |
-| Five themes and pinned note ordering | implemented | physical device test pending |
-| Note text search | implemented | unit tests and device test pending |
-| Reminder schedule, update, cancel and reboot restore | implemented | Doze/notification device test pending |
-| SAF JSON backup export/import; transactional merge | implemented | JVM tests; device SAF test pending |
-| SQLite schema migration from v1 to v2 | implemented | device upgrade test pending |
-| Arabic RTL strings and first-strong editing | implemented | device localization test pending |
-| CI unit tests, Android lint, APK artifact | implemented | see actual Actions runs |
+| Floating circle, edge docking and menu | Implemented | Previously observed in Android 15 emulator |
+| Copy, paste, new, open, stop | Implemented | Full gesture matrix pending |
+| Up to four floating editors, independent autosave | Implemented | Multi-window device test pending |
+| Resizing, colors, pinning and text search | Implemented | Device test pending |
+| Inexact reminders and reboot restoration | Implemented | Real device delivery test pending |
+| v1→v2 SQLite migration without data loss | Implemented | Upgrade instrumentation pending |
+| Plain JSON import/export | Implemented | JVM archive tests; device SAF pending |
+| Encrypted backup AES-256-GCM, PBKDF2 210k | Implemented | JVM crypto tests + device SAF pending |
+| Deduplicate repeat imports | Implemented | Database integration test pending |
+| Arabic / RTL | Translated | RTL gesture and large font tests pending |
+| CI (Kotlin unit tests, lint, APK) | Configured | Consult live GitHub Actions |
 
-### Important constraints
+## Security controls
 
-- JSON backups are plaintext, not encrypted. Export only to trusted storage.
-- Import MERGES; it never deletes current notes. Reimport duplicates notes.
-- Reminders are INEXACT. Android may delay them. Android 13+ requires notification permission.
-- Pin denotes top of the list, not a locked editor window.
-- Copy/paste operate on note content and the Android clipboard, not other apps' input fields.
-- Android 8–16, OEM background restrictions, landscape and accessibility still need device verification.
+No internet or accessibility permission. Foreground service is not exported.
+Backups encrypt note content with a per-file random salt and nonce and authenticate the
+header. Passphrase required for decryption; no recovery. Legacy plain JSON export
+remains a selectable unencrypted alternative. Password arrays are wiped after use.
 
-## Future increments
+## Pending acceptance gates
 
-1. Android emulator or physical-device UI acceptance tests and screenshots.
-2. Test upgrade v1 to v2 and backup rollback, notification permission, RTL gestures and low-memory recovery.
-3. Optional encrypted backup, rich-text note editor and simultaneously visible multiple editors.
-4. Optional recurring reminders and import deduplication.
-5. Production signing, store requirements and app icon design refinements.
+1. Physical Android devices: 8, 13, 15+: start/stop, rotation, overlay permission,
+   all quick actions, editable keyboard, 4 simultaneous windows and independent save.
+2. Database migration and import idempotence instrumented regression tests.
+3. Real encrypted export → uninstall/reinstall → restore and wrong-password rejection.
+4. Notification channel visibility, reminder delivery with Doze and battery optimizations.
+5. UI polish (sizing, accessibility/TalkBack), full rich text, icon brand, screenshots.
+6. Production keystore/signing, distribution review and repeatable release process.
 
-## Hardware acceptance checklist
+### Emulator evidence
 
-- Grant/deny overlay; test bubble launch, drag, docking and every quick action.
-- Test copy/paste when different apps are in foreground; verify denied clipboard response.
-- Create multiple notes, resize editor, rotate screen, minimize, reopen and verify autosave.
-- Change colors/pinning; search by Arabic/English, delete and reopen.
-- Import/export JSON and corrupt file; verify no partial changes.
-- Upgrade real v1 database; preserve data and IDs.
-- Reminders: schedule, change, cancel, reboot, battery saver and denied notifications.
-- Android 8, 13 and 15+; narrow viewport, RTL, large font and TalkBack focus.
-
-## Emulator observation (2026-10-15)
-
-- Android 15 emulator actually launched the app, circular bubble and all five quick-action icons.
-- Real screenshots are in GitHub Actions run 38768910257 (artifact of the failed smoke job).
-- The emulator runner intermittently displayed a system Pixel Launcher ANR; subsequent UI verification was blocked.
-- To avoid false-red CI on every code push, emulator smoke is available through manual workflow_dispatch only.
-- Editor interaction, all button actions and physical device testing are NOT fully verified.
+The Android 15 emulator previously displayed the home screen, circle and menu,
+but unstable Pixel Launcher ANR prevented reliable completion of full gesture tests.
+The emulator-smoke workflow is manual; do not claim it validates the full product.

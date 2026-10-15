@@ -125,9 +125,16 @@ class NoteStore(context: Context) :
     fun importNotes(items: List<Note>): List<Long> {
         val db = writableDatabase
         val ids = mutableListOf<Long>()
+        // Import is idempotent for identical notes. Keep metadata and timestamp in identity.
+        val now = System.currentTimeMillis()
+        fun signature(note: Note): List<Any?> = listOf(note.body, note.updatedAt,
+            NoteColors.valid(note.color), note.pinned,
+            note.reminderAt?.takeIf { it > now })
+        val seen = all().map(::signature).toMutableSet()
         db.beginTransaction()
         try {
             for (n in items) {
+                if (!seen.add(signature(n))) continue
                 val values = ContentValues().apply {
                     put("body", n.body)
                     put("updated_at", n.updatedAt)
