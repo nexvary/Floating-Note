@@ -70,16 +70,15 @@ class NoteStoreInstrumentedTest {
     @Test
     fun pinnedOrderingArabicSearchAndPersistence() {
         val reminderAt = System.currentTimeMillis() + 86_400_000L
-        val regular: Long
-        val pinned: Long
-        withStore { store ->
-            regular = store.create("English note", 2)
-            pinned = store.create("ملاحظة مهمة\nتجربة", 4)
+        val (regular, pinned) = withStore { store ->
+            val regular = store.create("English note", 2)
+            val pinned = store.create("ملاحظة مهمة\nتجربة", 4)
             assertTrue(store.setPinned(pinned, true))
             assertTrue(store.setReminder(pinned, reminderAt))
             assertEquals(listOf(pinned, regular), store.all().map { it.id })
             assertEquals(listOf(pinned), store.search("مهمة").map { it.id })
             assertEquals(listOf(regular), store.search("english").map { it.id })
+            regular to pinned
         }
         withStore { store ->
             val saved = store.get(pinned)!!
