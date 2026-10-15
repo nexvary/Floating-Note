@@ -42,9 +42,10 @@ class MainActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         database = NoteStore(this)
-        savedInstanceState?.getString("pending_overlay_action")?.let { action ->
-            pendingOverlayAction = action to
-                savedInstanceState.getLong("pending_overlay_id", -1L)
+        savedInstanceState?.let { saved ->
+            saved.getString("pending_overlay_action")?.let { action ->
+                pendingOverlayAction = action to saved.getLong("pending_overlay_id", -1L)
+            }
         }
         root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
