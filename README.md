@@ -2,7 +2,7 @@
 
 Offline-first Android floating notes, optimized for Arabic and English.
 
-## Version 0.3.0 (development — dev/foundation)
+## Version 0.3.1 (development — dev/foundation)
 
 - A draggable circular bubble with quick actions: open, create, copy, paste, stop.
 - Up to four simultaneous floating note editors, independently autosaved and minimized.

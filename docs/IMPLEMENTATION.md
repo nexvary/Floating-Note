@@ -1,6 +1,6 @@
 # NEXVARY Floating Note — development status
 
-## Version 0.3.0 deliverables (implementation; CI required)
+## Version 0.3.1 deliverables (implementation; CI required)
 
 | Requirement | State | Runtime evidence |
 |---|---|---|
@@ -38,3 +38,18 @@ remains a selectable unencrypted alternative. Password arrays are wiped after us
 The Android 15 emulator previously displayed the home screen, circle and menu,
 but unstable Pixel Launcher ANR prevented reliable completion of full gesture tests.
 The emulator-smoke workflow is manual; do not claim it validates the full product.
+
+## Verified Android emulator run (2026-10-15)
+
+GitHub Actions AOSP Android 15 smoke run **38774157345** passed. The verified
+artifact contains real PNGs for the home screen, floating bubble, expanded
+quick-action menu and editor, plus a service diagnostics log. This confirms
+app launch, a user-triggered overlay start, bubble action menu and note-editor
+opening on the emulator. It does not cover every quick-action side effect,
+four-window persistence, encrypted SAF restoration on a phone, or reminder
+delivery in battery-saver mode.
+
+Evidence: https://github.com/nexvary/Floating-Note/actions/runs/38774157345
+
+The 0.3.1 follow-up refreshes the home page's running-state control and resumes
+a pending note after the system overlay permission flow; its own CI must pass.
