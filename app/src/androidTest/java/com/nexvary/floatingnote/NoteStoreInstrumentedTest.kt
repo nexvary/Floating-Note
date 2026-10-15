@@ -47,7 +47,7 @@ class NoteStoreInstrumentedTest {
         original.version = 1
         original.close()
 
-        NoteStore(context).use { store ->
+        withStore { store ->
             val migrated = store.get(47)
             assertNotNull(migrated)
             assertEquals("عنوان قديم\nتفاصيل أصلية", migrated!!.body)
@@ -59,7 +59,7 @@ class NoteStoreInstrumentedTest {
             assertTrue(store.setColor(47, 3))
             assertTrue(store.update(47, "بعد الترقية"))
         }
-        NoteStore(context).use { store ->
+        withStore { store ->
             val reopened = store.get(47)!!
             assertEquals("بعد الترقية", reopened.body)
             assertTrue(reopened.pinned)
@@ -72,7 +72,7 @@ class NoteStoreInstrumentedTest {
         val reminderAt = System.currentTimeMillis() + 86_400_000L
         val regular: Long
         val pinned: Long
-        NoteStore(context).use { store ->
+        withStore { store ->
             regular = store.create("English note", 2)
             pinned = store.create("ملاحظة مهمة\nتجربة", 4)
             assertTrue(store.setPinned(pinned, true))
@@ -81,7 +81,7 @@ class NoteStoreInstrumentedTest {
             assertEquals(listOf(pinned), store.search("مهمة").map { it.id })
             assertEquals(listOf(regular), store.search("english").map { it.id })
         }
-        NoteStore(context).use { store ->
+        withStore { store ->
             val saved = store.get(pinned)!!
             assertTrue(saved.pinned)
             assertEquals(4, saved.color)
@@ -94,7 +94,7 @@ class NoteStoreInstrumentedTest {
 
     @Test
     fun importingSameBackupTwiceIsIdempotentAndMergePreservesLocalNotes() {
-        NoteStore(context).use { store ->
+        withStore { store ->
             val existing = store.create("My existing unsynced note")
             val imported = Note(-1, "النص المستورد", 55_555L, 3, true, null)
             val first = store.importNotes(listOf(imported, imported))
@@ -108,7 +108,7 @@ class NoteStoreInstrumentedTest {
 
     @Test
     fun invalidRecordIdCannotOverwriteOrDeleteOtherNotes() {
-        NoteStore(context).use { store ->
+        withStore { store ->
             val id = store.create("Private original")
             assertFalse(store.update(-1, "Attack"))
             assertFalse(store.delete(-1))
@@ -140,6 +140,16 @@ class NoteStoreInstrumentedTest {
             }
         } finally {
             passphrase.fill('\u0000')
+        }
+    }
+
+    /** SQLiteOpenHelper is not AutoCloseable on all supported Android releases. */
+    private inline fun <T> withStore(block: (NoteStore) -> T): T {
+        val store = NoteStore(context)
+        return try {
+            block(store)
+        } finally {
+            store.close()
         }
     }
 
