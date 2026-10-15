@@ -3,7 +3,19 @@ plugins {
     id("org.jetbrains.kotlin.android")
 }
 
+val hasSigningKey = !System.getenv("ANDROID_KEYSTORE_PATH").isNullOrBlank()
+
 android {
+    signingConfigs {
+        if (hasSigningKey) {
+            create("production") {
+                storeFile = file(System.getenv("ANDROID_KEYSTORE_PATH"))
+                storePassword = System.getenv("ANDROID_KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("ANDROID_KEY_ALIAS")
+                keyPassword = System.getenv("ANDROID_KEY_PASSWORD")
+            }
+        }
+    }
     namespace = "com.nexvary.floatingnote"
     compileSdk = 36
 
@@ -19,6 +31,7 @@ android {
     buildTypes {
         release {
             isMinifyEnabled = false
+            if (hasSigningKey) signingConfig = signingConfigs.getByName("production")
         }
     }
 
