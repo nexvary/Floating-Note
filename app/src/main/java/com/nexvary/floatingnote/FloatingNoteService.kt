@@ -1,5 +1,6 @@
 package com.nexvary.floatingnote
 
+import android.app.AppOpsManager
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -64,11 +65,22 @@ class FloatingNoteService : Service() {
     private var activeNoteId = -1L
     private var bubbleParams: WindowManager.LayoutParams? = null
     private var foreground = false
+    // Immediately stop the foreground service when the user revokes overlay access.
+    private val overlayWatcher = AppOpsManager.OnOpChangedListener { operation, changedPackage ->
+        if (operation == AppOpsManager.OPSTR_SYSTEM_ALERT_WINDOW &&
+            changedPackage == packageName && !Settings.canDrawOverlays(this)
+        ) {
+            handler.post { stopSelf() }
+        }
+    }
 
     override fun onCreate() {
         super.onCreate()
         wm = getSystemService(WINDOW_SERVICE) as WindowManager
         notes = NoteStore(this)
+        (getSystemService(APP_OPS_SERVICE) as AppOpsManager).startWatchingMode(
+            AppOpsManager.OPSTR_SYSTEM_ALERT_WINDOW, packageName, overlayWatcher
+        )
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
@@ -549,6 +561,8 @@ class FloatingNoteService : Service() {
     }
 
     override fun onDestroy() {
+        (getSystemService(APP_OPS_SERVICE) as AppOpsManager)
+            .stopWatchingMode(overlayWatcher)
         editors.keys.toList().forEach { closeEditor(it) }
         pendingSaves.values.forEach(handler::removeCallbacks)
         pendingSaves.clear()
