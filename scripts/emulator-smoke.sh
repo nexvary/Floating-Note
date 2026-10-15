@@ -37,11 +37,26 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 adb shell pm grant "$PACKAGE" android.permission.POST_NOTIFICATIONS || true
 adb shell appops set "$PACKAGE" SYSTEM_ALERT_WINDOW allow
 adb shell am start -W -n "$PACKAGE/.MainActivity"
-sleep 4
+sleep 6
+# Cold emulator boots occasionally display a Pixel Launcher ANR dialog.
+# Dismiss the SYSTEM dialog instead of altering our non-exported service.
+for attempt in 1 2 3; do
+  adb shell uiautomator dump /sdcard/nexvary-window.xml || true
+  adb pull /sdcard/nexvary-window.xml /tmp/nexvary-window.xml >/dev/null || true
+  if grep -q 'responding' /tmp/nexvary-window.xml; then
+    tap_accessible "Wait" || true
+    sleep 5
+  else
+    break
+  fi
+done
 adb exec-out screencap -p > screenshots/01-home.png
 
 # Start the non-exported foreground service through the app's own button.
-tap_accessible "Enable floating note"
+if ! tap_accessible "Enable floating note"; then
+  sleep 7
+  tap_accessible "Enable floating note"
+fi
 sleep 3
 adb exec-out screencap -p > screenshots/02-bubble.png
 
