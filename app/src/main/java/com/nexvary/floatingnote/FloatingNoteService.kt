@@ -10,6 +10,7 @@ import android.content.ClipboardManager
 import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.graphics.PixelFormat
+import android.util.Log
 import android.os.Build
 import android.os.Handler
 import android.os.IBinder
@@ -98,7 +99,7 @@ class FloatingNoteService : Service() {
             if (bubble == null) stopSelf()
             return START_NOT_STICKY
         }
-        if (bubble == null) createBubble()
+        if (bubble == null && !createBubble()) return START_NOT_STICKY
         getSharedPreferences("overlay_state", MODE_PRIVATE)
             .edit().putBoolean("active", true).apply()
 
@@ -158,7 +159,7 @@ class FloatingNoteService : Service() {
     private fun screenWidth(): Int = resources.displayMetrics.widthPixels
     private fun screenHeight(): Int = resources.displayMetrics.heightPixels
 
-    private fun createBubble() {
+    private fun createBubble(): Boolean {
         val icon = icon(R.drawable.ic_note, getString(R.string.open), Palette.PANEL, 62) {
             toggleMenu()
         }
@@ -192,7 +193,7 @@ class FloatingNoteService : Service() {
                     if (moving) {
                         p.x = (initialX + dx.toInt()).coerceIn(0, max(0, screenWidth() - dp(62)))
                         p.y = (initialY + dy.toInt()).coerceIn(dp(28), max(dp(28), screenHeight() - dp(100)))
-                        wm.updateViewLayout(icon, p)
+                        updateWindow(icon, p)
                         removeMenu()
                     }
                     true
@@ -201,7 +202,7 @@ class FloatingNoteService : Service() {
                     if (moving) {
                         val dockRight = p.x > (screenWidth() - dp(62)) / 2
                         p.x = if (dockRight) max(0, screenWidth() - dp(66)) else dp(4)
-                        wm.updateViewLayout(icon, p)
+                        updateWindow(icon, p)
                         getSharedPreferences("overlay_position", MODE_PRIVATE).edit()
                             .putInt("x", p.x).putInt("y", p.y).apply()
                     } else {
@@ -213,9 +214,10 @@ class FloatingNoteService : Service() {
                 else -> false
             }
         }
-        wm.addView(icon, p)
+        if (!addWindow(icon, p)) return false
         bubble = icon
         bubbleParams = p
+        return true
     }
 
     private fun toggleMenu() {
@@ -252,8 +254,7 @@ class FloatingNoteService : Service() {
         val b = bubbleParams ?: return
         p.x = (b.x - dp(195)).coerceIn(0, max(0, screenWidth() - dp(254)))
         p.y = (b.y + dp(67)).coerceAtMost(max(0, screenHeight() - dp(80)))
-        wm.addView(bar, p)
-        menu = bar
+        if (addWindow(bar, p)) menu = bar
     }
 
     private fun removeMenu() {
@@ -418,7 +419,7 @@ class FloatingNoteService : Service() {
                         .coerceIn(minHeight, maxHeight)
                     p.x = p.x.coerceIn(0, max(0, screenWidth() - p.width))
                     p.y = p.y.coerceIn(dp(28), max(dp(28), screenHeight() - p.height))
-                    wm.updateViewLayout(card, p)
+                    updateWindow(card, p)
                     true
                 }
                 MotionEvent.ACTION_UP -> {
@@ -451,7 +452,7 @@ class FloatingNoteService : Service() {
                             .coerceIn(0, max(0, screenWidth() - p.width))
                         p.y = (startY + (event.rawY - fromY).toInt())
                             .coerceIn(dp(28), max(dp(28), screenHeight() - p.height))
-                        wm.updateViewLayout(card, p)
+                        updateWindow(card, p)
                     }
                     true
                 }
@@ -459,7 +460,7 @@ class FloatingNoteService : Service() {
                 else -> false
             }
         }
-        wm.addView(card, p)
+        if (!addWindow(card, p)) return
         editors[noteId] = EditorSession(card, input, p)
         input.setOnFocusChangeListener { _, focused ->
             if (focused) activeNoteId = noteId
@@ -513,12 +514,37 @@ class FloatingNoteService : Service() {
         Toast.makeText(this, res, Toast.LENGTH_SHORT).show()
     }
 
+    /** Window-manager calls can fail when overlay access is revoked while a note is open. */
+    private fun addWindow(view: View, params: WindowManager.LayoutParams): Boolean {
+        if (!Settings.canDrawOverlays(this)) {
+            stopSelf()
+            return false
+        }
+        return try {
+            wm.addView(view, params)
+            true
+        } catch (error: RuntimeException) {
+            Log.w("NEXVARYFloating", "Overlay attachment failed", error)
+            stopSelf()
+            false
+        }
+    }
+
+    private fun updateWindow(view: View, params: WindowManager.LayoutParams) {
+        try {
+            wm.updateViewLayout(view, params)
+        } catch (error: RuntimeException) {
+            Log.w("NEXVARYFloating", "Overlay update failed", error)
+            stopSelf()
+        }
+    }
+
     private fun removeWindow(view: View?) {
         if (view == null) return
         try {
             wm.removeView(view)
-        } catch (_: IllegalArgumentException) {
-            // Overlay could already be detached after permission is revoked.
+        } catch (error: RuntimeException) {
+            Log.w("NEXVARYFloating", "Overlay was already detached", error)
         }
     }
 
