@@ -3,24 +3,37 @@ package com.nexvary.floatingnote
 import android.Manifest
 import android.app.Activity
 import android.app.AlertDialog
+import android.app.DatePickerDialog
+import android.app.TimePickerDialog
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
+import android.text.Editable
+import android.text.TextWatcher
 import android.view.Gravity
-import android.view.View
 import android.view.WindowInsets
+import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.Toast
-import android.widget.TextView
 import java.text.DateFormat
+import java.util.Calendar
 import java.util.Date
 
 class MainActivity : Activity() {
+    companion object {
+        const val EXTRA_OPEN_NOTE = "open_note"
+        private const val REQUEST_EXPORT = 310
+        private const val REQUEST_IMPORT = 311
+    }
+
     private lateinit var database: NoteStore
     private lateinit var root: LinearLayout
+    private var search = ""
+    private var noteContainer: LinearLayout? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -47,6 +60,21 @@ class MainActivity : Activity() {
             insets
         }
         render()
+        handleOpenIntent(intent)
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        handleOpenIntent(intent)
+    }
+
+    private fun handleOpenIntent(intent: Intent?) {
+        val id = intent?.getLongExtra(EXTRA_OPEN_NOTE, -1L) ?: -1L
+        if (id >= 0 && database.get(id) != null) {
+            start(FloatingNoteService.ACTION_OPEN, id)
+            intent?.removeExtra(EXTRA_OPEN_NOTE)
+        }
     }
 
     override fun onResume() {
@@ -59,9 +87,8 @@ class MainActivity : Activity() {
         super.onDestroy()
     }
 
-    private fun overlayAllowed(): Boolean = Settings.canDrawOverlays(this)
-
-    private fun isRunning(): Boolean =
+    private fun overlayAllowed() = Settings.canDrawOverlays(this)
+    private fun isRunning() =
         getSharedPreferences("overlay_state", MODE_PRIVATE).getBoolean("active", false)
 
     private fun start(action: String, id: Long = -1L) {
@@ -75,15 +102,16 @@ class MainActivity : Activity() {
         }
         try {
             startForegroundService(intent)
-            if (Build.VERSION.SDK_INT >= 33 &&
-                checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) !=
-                android.content.pm.PackageManager.PERMISSION_GRANTED
-            ) {
-                requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 200)
-            }
+            askNotificationPermission()
         } catch (error: RuntimeException) {
             Toast.makeText(this, error.localizedMessage ?: "Unable to start overlay", Toast.LENGTH_LONG).show()
         }
+    }
+
+    private fun askNotificationPermission() {
+        if (Build.VERSION.SDK_INT >= 33 &&
+            checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+        ) requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 200)
     }
 
     private fun stop() {
@@ -93,12 +121,10 @@ class MainActivity : Activity() {
     }
 
     private fun requestOverlay() {
-        val intent = Intent(
-            Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-            Uri.parse("package:$packageName")
-        )
+        val settings = Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+            Uri.parse("package:$packageName"))
         try {
-            startActivity(intent)
+            startActivity(settings)
         } catch (_: Exception) {
             startActivity(Intent(Settings.ACTION_SETTINGS))
         }
@@ -114,12 +140,12 @@ class MainActivity : Activity() {
         scroll.addView(content)
         root.addView(scroll, LinearLayout.LayoutParams(-1, 0, 1f))
 
-        content.addView(label("NEXVARY", 14f, Palette.MINT, bold = true))
-        content.addSpace(this, 8)
-        content.addView(label(getString(R.string.app_name), 30f, Palette.WHITE, bold = true))
-        content.addSpace(this, 6)
-        content.addView(label(getString(R.string.tagline), 15f, Palette.MUTED))
-        content.addSpace(this, 28)
+        content.addView(label("NEXVARY  /  WORKSPACE", 12f, Palette.MINT, true))
+        content.addSpace(this, 9)
+        content.addView(label(getString(R.string.app_name), 29f, Palette.WHITE, true))
+        content.addSpace(this, 7)
+        content.addView(label(getString(R.string.tagline), 14f, Palette.MUTED))
+        content.addSpace(this, 22)
 
         val setup = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -130,7 +156,6 @@ class MainActivity : Activity() {
         setup.addSpace(this, 8)
         setup.addView(label(getString(R.string.overlay_description), 14f, Palette.MUTED))
         setup.addSpace(this, 20)
-
         if (!overlayAllowed()) {
             setup.addView(label(getString(R.string.permission_hint), 13f, Palette.MUTED))
             setup.addSpace(this, 12)
@@ -143,68 +168,232 @@ class MainActivity : Activity() {
             })
         }
         content.addView(setup)
-        content.addSpace(this, 28)
+        content.addSpace(this, 22)
+
+        val archiveBar = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        archiveBar.addView(action(getString(R.string.export_notes), false) { exportNotes() },
+            LinearLayout.LayoutParams(0, -2, 1f))
+        archiveBar.addView(android.view.View(this), LinearLayout.LayoutParams(dp(10), 1))
+        archiveBar.addView(action(getString(R.string.import_notes), false) { importNotes() },
+            LinearLayout.LayoutParams(0, -2, 1f))
+        content.addView(archiveBar)
+        content.addSpace(this, 24)
 
         val section = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
         }
-        section.addView(
-            label(getString(R.string.my_notes), 21f, Palette.WHITE, true),
-            LinearLayout.LayoutParams(0, dp(46), 1f)
-        )
-        section.addView(icon(R.drawable.ic_add, getString(R.string.new_note), Palette.PANEL_LIGHT, 44) {
-            val id = database.create()
-            start(FloatingNoteService.ACTION_OPEN, id)
+        section.addView(label(getString(R.string.my_notes), 21f, Palette.WHITE, true),
+            LinearLayout.LayoutParams(0, dp(46), 1f))
+        section.addView(icon(R.drawable.ic_add, getString(R.string.new_note),
+            Palette.PANEL_LIGHT, 46) {
+            val newId = database.create()
+            start(FloatingNoteService.ACTION_OPEN, newId)
             render()
         })
         content.addView(section)
         content.addSpace(this, 12)
 
-        val notes = database.all()
-        if (notes.isEmpty()) {
-            val empty = label(getString(R.string.empty_notes), 15f, Palette.MUTED)
-            empty.setPadding(dp(12), dp(24), dp(12), dp(24))
-            content.addView(empty)
-        } else {
-            notes.forEach { note -> addNoteCard(content, note) }
+        val filter = EditText(this).apply {
+            setSingleLine(true)
+            setText(search)
+            setTextColor(Palette.WHITE)
+            setHintTextColor(Palette.MUTED)
+            setHint(R.string.search_notes)
+            textSize = 15f
+            setPadding(dp(17), dp(10), dp(17), dp(10))
+            background = roundShape(Palette.PANEL_LIGHT, 14)
         }
+        content.addView(filter, LinearLayout.LayoutParams(-1, dp(52)))
+        content.addSpace(this, 16)
+
+        noteContainer = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        content.addView(noteContainer)
+        displayNotes()
+        filter.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
+                search = s?.toString().orEmpty()
+                displayNotes()
+            }
+            override fun afterTextChanged(s: Editable?) = Unit
+        })
+    }
+
+    private fun displayNotes() {
+        val parent = noteContainer ?: return
+        parent.removeAllViews()
+        val list = database.search(search)
+        if (list.isEmpty()) {
+            val empty = label(getString(if (search.isNotEmpty()) R.string.no_results
+                else R.string.empty_notes), 15f, Palette.MUTED)
+            empty.setPadding(dp(12), dp(24), dp(12), dp(24))
+            parent.addView(empty)
+        } else list.forEach { addNoteCard(parent, it) }
     }
 
     private fun addNoteCard(parent: LinearLayout, note: Note) {
+        val accent = NoteColors.accents[note.color]
         val row = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER_VERTICAL
+            background = roundShape(NoteColors.backgrounds[note.color], 18, accent)
+            setPadding(dp(15), dp(14), dp(12), dp(12))
+        }
+        val heading = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            background = roundShape(Palette.PANEL, 18)
-            setPadding(dp(14), dp(15), dp(9), dp(15))
         }
-        val words = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-        words.addView(label(note.title.ifBlank { getString(R.string.untitled) }, 17f, Palette.WHITE, true).apply {
+        heading.addView(label(note.title.ifBlank { getString(R.string.untitled) }, 17f,
+            Palette.WHITE, true).apply {
             maxLines = 1
             ellipsize = android.text.TextUtils.TruncateAt.END
-        })
-        words.addSpace(this, 6)
-        words.addView(label(NoteText.preview(note.body).ifBlank { getString(R.string.placeholder) },
-            13f, Palette.MUTED).apply {
+        }, LinearLayout.LayoutParams(0, -2, 1f))
+        if (note.pinned) heading.addView(label(" ● ", 17f, accent, true))
+        row.addView(heading)
+        row.addSpace(this, 6)
+        val preview = label(
+            NoteText.preview(note.body).ifBlank { getString(R.string.placeholder) },
+            13f, Palette.MUTED
+        ).apply {
             maxLines = 2
             ellipsize = android.text.TextUtils.TruncateAt.END
+        }
+        row.addView(preview)
+        row.addSpace(this, 9)
+        val footer = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+        val dateText = DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT)
+            .format(Date(note.updatedAt))
+        footer.addView(label(dateText, 11f, Palette.MUTED),
+            LinearLayout.LayoutParams(0, -2, 1f))
+        footer.addView(icon(R.drawable.ic_palette, getString(R.string.note_color), Palette.PANEL,
+            38) { selectColor(note) })
+        footer.addView(icon(R.drawable.ic_pin, getString(R.string.pin_note), Palette.PANEL,
+            38) {
+            database.setPinned(note.id, !note.pinned)
+            displayNotes()
         })
-        words.addSpace(this, 9)
-        words.addView(label(DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT)
-            .format(Date(note.updatedAt)), 11f, Palette.MUTED))
-        words.setOnClickListener { start(FloatingNoteService.ACTION_OPEN, note.id) }
-        row.addView(words, LinearLayout.LayoutParams(0, -2, 1f))
-        row.addView(icon(R.drawable.ic_trash, getString(R.string.delete), Palette.PANEL, 40) {
+        footer.addView(icon(R.drawable.ic_bell, getString(R.string.reminders), Palette.PANEL,
+            38) { selectReminder(note) })
+        footer.addView(icon(R.drawable.ic_trash, getString(R.string.delete), Palette.PANEL,
+            38) {
             AlertDialog.Builder(this)
                 .setMessage(R.string.delete_question)
                 .setNegativeButton(R.string.cancel, null)
                 .setPositiveButton(R.string.delete) { _, _ ->
+                    ReminderScheduler.cancel(this, note.id)
                     database.delete(note.id)
-                    render()
+                    displayNotes()
                 }.show()
         })
-        val p = LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(10) }
-        parent.addView(row, p)
+        row.addView(footer)
+        if (note.reminderAt != null) {
+            row.addView(label(
+                getString(R.string.reminder_set,
+                    DateFormat.getDateTimeInstance().format(Date(note.reminderAt))),
+                12f, accent
+            ))
+        }
         row.setOnClickListener { start(FloatingNoteService.ACTION_OPEN, note.id) }
+        parent.addView(row, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(12) })
+    }
+
+    private fun selectColor(note: Note) {
+        AlertDialog.Builder(this)
+            .setTitle(R.string.note_color)
+            .setSingleChoiceItems(
+                arrayOf(
+                    getString(R.string.color_mint), getString(R.string.color_sage),
+                    getString(R.string.color_peach), getString(R.string.color_blue),
+                    getString(R.string.color_violet)
+                ), note.color
+            ) { dialog, selected ->
+                database.setColor(note.id, selected)
+                dialog.dismiss()
+                displayNotes()
+            }.show()
+    }
+
+    private fun selectReminder(note: Note) {
+        if (note.reminderAt == null) {
+            showReminderPicker(note)
+        } else {
+            AlertDialog.Builder(this)
+                .setTitle(R.string.reminders)
+                .setMessage(R.string.change_or_cancel_reminder)
+                .setPositiveButton(R.string.change_reminder) { _, _ ->
+                    showReminderPicker(note)
+                }
+                .setNegativeButton(R.string.cancel_reminder) { _, _ ->
+                    database.setReminder(note.id, null)
+                    ReminderScheduler.cancel(this, note.id)
+                    displayNotes()
+                }
+                .setNeutralButton(R.string.cancel, null)
+                .show()
+        }
+    }
+
+    private fun showReminderPicker(note: Note) {
+        val calendar = Calendar.getInstance().apply { add(Calendar.DAY_OF_MONTH, 1) }
+        DatePickerDialog(this, { _, year, month, day ->
+            TimePickerDialog(this, { _, hour, minute ->
+                calendar.set(year, month, day, hour, minute, 0)
+                calendar.set(Calendar.MILLISECOND, 0)
+                if (calendar.timeInMillis > System.currentTimeMillis()) {
+                    database.setReminder(note.id, calendar.timeInMillis)
+                    database.get(note.id)?.let { ReminderScheduler.schedule(this, it) }
+                    askNotificationPermission()
+                    displayNotes()
+                } else Toast.makeText(this, R.string.choose_future, Toast.LENGTH_SHORT).show()
+            }, calendar.get(Calendar.HOUR_OF_DAY), calendar.get(Calendar.MINUTE), true).show()
+        }, calendar.get(Calendar.YEAR), calendar.get(Calendar.MONTH),
+            calendar.get(Calendar.DAY_OF_MONTH)).show()
+    }
+
+    private fun exportNotes() {
+        startActivityForResult(Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
+            addCategory(Intent.CATEGORY_OPENABLE)
+            type = "application/json"
+            putExtra(Intent.EXTRA_TITLE, "nexvary-notes-backup.json")
+        }, REQUEST_EXPORT)
+    }
+
+    private fun importNotes() {
+        startActivityForResult(Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+            addCategory(Intent.CATEGORY_OPENABLE)
+            type = "*/*"
+        }, REQUEST_IMPORT)
+    }
+
+    @Deprecated("Uses platform activity-result mechanism without external dependencies.")
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        val uri = data?.data ?: return
+        if (resultCode != RESULT_OK) return
+        try {
+            if (requestCode == REQUEST_EXPORT) {
+                contentResolver.openOutputStream(uri)?.use { NoteArchive.export(database.all(), it) }
+                    ?: error("Unable to open destination")
+                Toast.makeText(this, R.string.export_success, Toast.LENGTH_LONG).show()
+            } else if (requestCode == REQUEST_IMPORT) {
+                val incoming = contentResolver.openInputStream(uri)?.use { NoteArchive.read(it) }
+                    ?: error("Unable to open backup")
+                val ids = database.importNotes(incoming)
+                ids.forEach { id -> database.get(id)?.let { ReminderScheduler.schedule(this, it) } }
+                displayNotes()
+                Toast.makeText(this, getString(R.string.import_success, ids.size),
+                    Toast.LENGTH_LONG).show()
+            }
+        } catch (error: Exception) {
+            AlertDialog.Builder(this)
+                .setTitle(R.string.archive_error)
+                .setMessage(error.localizedMessage ?: getString(R.string.archive_error))
+                .setPositiveButton(android.R.string.ok, null)
+                .show()
+        }
     }
 }

@@ -1,4 +1,3 @@
-<?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">NEXVARY نوتة عائمة</string>
     <string name="tagline">أفكارك أمامك بضغطة واحدة</string>
@@ -28,4 +27,25 @@
     <string name="notification_title">النوتة العائمة تعمل</string>
     <string name="notification_text">اضغط لإدارة الملاحظات أو أوقف الأيقونة من التطبيق.</string>
     <string name="permission_denied">لم يتم منح إذن الظهور فوق التطبيقات</string>
+    <string name="note_color">لون الملاحظة</string>
+    <string name="color_mint">نعناعي</string>
+    <string name="color_sage">أخضر هادئ</string>
+    <string name="color_peach">خوخي</string>
+    <string name="color_blue">أزرق ليلي</string>
+    <string name="color_violet">بنفسجي</string>
+    <string name="pin_note">تثبيت أو إلغاء تثبيت</string>
+    <string name="reminders">تذكيرات الملاحظات</string>
+    <string name="reminder_set">تذكير: %1$s</string>
+    <string name="choose_future">اختر وقتًا في المستقبل</string>
+    <string name="change_or_cancel_reminder">هل تريد تغيير التذكير أو إلغاءه؟</string>
+    <string name="change_reminder">تغيير</string>
+    <string name="cancel_reminder">إلغاء التذكير</string>
+    <string name="search_notes">ابحث في الملاحظات…</string>
+    <string name="no_results">لا توجد نتائج مطابقة.</string>
+    <string name="export_notes">تصدير نسخة</string>
+    <string name="import_notes">استيراد نسخة</string>
+    <string name="export_success">تم تصدير النسخة</string>
+    <string name="import_success">تم استيراد %1$d ملاحظة</string>
+    <string name="archive_error">تعذّرت معالجة النسخة الاحتياطية</string>
+    <string name="resize_note">تغيير حجم الملاحظة</string>
 </resources>

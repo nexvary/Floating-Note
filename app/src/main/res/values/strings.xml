@@ -1,4 +1,3 @@
-<?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">NEXVARY Floating Note</string>
     <string name="tagline">Your ideas, one tap away</string>
@@ -28,4 +27,25 @@
     <string name="notification_title">Floating Note is active</string>
     <string name="notification_text">Tap to manage notes, or stop the bubble from the app.</string>
     <string name="permission_denied">Floating permission has not been granted</string>
+    <string name="note_color">Note color</string>
+    <string name="color_mint">Mint</string>
+    <string name="color_sage">Sage</string>
+    <string name="color_peach">Peach</string>
+    <string name="color_blue">Midnight blue</string>
+    <string name="color_violet">Violet</string>
+    <string name="pin_note">Pin or unpin</string>
+    <string name="reminders">Note reminders</string>
+    <string name="reminder_set">Reminder: %1$s</string>
+    <string name="choose_future">Choose a time in the future</string>
+    <string name="change_or_cancel_reminder">Change or cancel this reminder?</string>
+    <string name="change_reminder">Change</string>
+    <string name="cancel_reminder">Remove reminder</string>
+    <string name="search_notes">Search notes…</string>
+    <string name="no_results">No matching notes.</string>
+    <string name="export_notes">Export backup</string>
+    <string name="import_notes">Import backup</string>
+    <string name="export_success">Backup exported</string>
+    <string name="import_success">Imported %1$d notes</string>
+    <string name="archive_error">Backup could not be processed</string>
+    <string name="resize_note">Resize note</string>
 </resources>

@@ -261,6 +261,7 @@ class FloatingNoteService : Service() {
         removeMenu()
         closeEditor()
         val note = notes.get(noteId) ?: return
+        var currentColor = NoteColors.valid(note.color)
         currentNoteId = noteId
         getSharedPreferences("overlay_state", MODE_PRIVATE).edit()
             .putLong("last_note", noteId).apply()
@@ -268,15 +269,24 @@ class FloatingNoteService : Service() {
         val card = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(12), dp(12), dp(12), dp(12))
-            background = roundShape(Palette.PANEL, 22, Palette.MINT)
+            background = roundShape(NoteColors.backgrounds[currentColor], 22,
+                NoteColors.accents[currentColor])
             elevation = dp(12).toFloat()
         }
         val header = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
         }
-        val heading = label(getString(R.string.untitled), 15f, Palette.MINT, true)
+        val heading = label(getString(R.string.untitled), 15f,
+            NoteColors.accents[currentColor], true)
         header.addView(heading, LinearLayout.LayoutParams(0, dp(45), 1f))
+        header.addView(icon(R.drawable.ic_palette, getString(R.string.note_color), Palette.PANEL, 40) {
+            currentColor = (currentColor + 1) % NoteColors.backgrounds.size
+            notes.setColor(noteId, currentColor)
+            card.background = roundShape(NoteColors.backgrounds[currentColor], 22,
+                NoteColors.accents[currentColor])
+            heading.setTextColor(NoteColors.accents[currentColor])
+        })
         header.addView(icon(R.drawable.ic_copy, getString(R.string.copy), Palette.PANEL, 40) {
             copyNote()
         })
@@ -306,6 +316,15 @@ class FloatingNoteService : Service() {
             minLines = 8
         }
         card.addView(input, LinearLayout.LayoutParams(-1, 0, 1f))
+        card.addSpace(this, 7)
+        val footer = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.END or Gravity.CENTER_VERTICAL
+        }
+        val resize = icon(R.drawable.ic_resize, getString(R.string.resize_note),
+            Palette.PANEL_LIGHT, 36) {}
+        footer.addView(resize)
+        card.addView(footer)
         heading.text = NoteText.title(note.body).ifBlank { getString(R.string.untitled) }
         input.addTextChangedListener(object : TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
@@ -318,11 +337,49 @@ class FloatingNoteService : Service() {
             override fun afterTextChanged(s: Editable?) = Unit
         })
 
-        val width = min(dp(380), max(dp(240), screenWidth() - dp(24)))
-        val height = min(dp(390), max(dp(230), screenHeight() - dp(190)))
+        val sizePrefs = getSharedPreferences("editor_size", MODE_PRIVATE)
+        val maxWidth = max(dp(220), screenWidth() - dp(16))
+        val maxHeight = max(dp(220), screenHeight() - dp(130))
+        val width = sizePrefs.getInt("width", dp(330)).coerceIn(
+            min(dp(230), maxWidth), maxWidth)
+        val height = sizePrefs.getInt("height", dp(360)).coerceIn(
+            min(dp(240), maxHeight), maxHeight)
         val p = floatingParams(width, height, true).apply {
             x = (screenWidth() - width) / 2
             y = dp(100)
+        }
+        val minWidth = min(dp(230), maxWidth)
+        val minHeight = min(dp(220), maxHeight)
+        var resizeStartX = 0f
+        var resizeStartY = 0f
+        var initialWidth = width
+        var initialHeight = height
+        resize.setOnTouchListener { _, event ->
+            when (event.actionMasked) {
+                MotionEvent.ACTION_DOWN -> {
+                    resizeStartX = event.rawX
+                    resizeStartY = event.rawY
+                    initialWidth = p.width
+                    initialHeight = p.height
+                    true
+                }
+                MotionEvent.ACTION_MOVE -> {
+                    p.width = (initialWidth + (event.rawX - resizeStartX).toInt())
+                        .coerceIn(minWidth, maxWidth)
+                    p.height = (initialHeight + (event.rawY - resizeStartY).toInt())
+                        .coerceIn(minHeight, maxHeight)
+                    p.x = p.x.coerceIn(0, max(0, screenWidth() - p.width))
+                    p.y = p.y.coerceIn(dp(28), max(dp(28), screenHeight() - p.height))
+                    wm.updateViewLayout(card, p)
+                    true
+                }
+                MotionEvent.ACTION_UP -> {
+                    sizePrefs.edit().putInt("width", p.width)
+                        .putInt("height", p.height).apply()
+                    true
+                }
+                else -> false
+            }
         }
         val dragThreshold = dp(7)
         var fromX = 0f
@@ -343,9 +400,9 @@ class FloatingNoteService : Service() {
                         abs(event.rawY - fromY) > dragThreshold
                     ) {
                         p.x = (startX + (event.rawX - fromX).toInt())
-                            .coerceIn(0, max(0, screenWidth() - width))
+                            .coerceIn(0, max(0, screenWidth() - p.width))
                         p.y = (startY + (event.rawY - fromY).toInt())
-                            .coerceIn(dp(28), max(dp(28), screenHeight() - dp(100)))
+                            .coerceIn(dp(28), max(dp(28), screenHeight() - p.height))
                         wm.updateViewLayout(card, p)
                     }
                     true
