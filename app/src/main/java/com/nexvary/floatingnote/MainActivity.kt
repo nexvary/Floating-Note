@@ -36,11 +36,16 @@ class MainActivity : Activity() {
     private lateinit var database: NoteStore
     private lateinit var root: LinearLayout
     private var search = ""
+    private var pendingOverlayAction: Pair<String, Long>? = null
     private var noteContainer: LinearLayout? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         database = NoteStore(this)
+        savedInstanceState?.getString("pending_overlay_action")?.let { action ->
+            pendingOverlayAction = action to
+                savedInstanceState.getLong("pending_overlay_id", -1L)
+        }
         root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setBackgroundColor(Palette.BACK)
@@ -82,7 +87,22 @@ class MainActivity : Activity() {
 
     override fun onResume() {
         super.onResume()
-        if (::database.isInitialized) render()
+        if (::database.isInitialized) {
+            render()
+            val pending = pendingOverlayAction
+            if (pending != null && overlayAllowed()) {
+                pendingOverlayAction = null
+                start(pending.first, pending.second)
+            }
+        }
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        pendingOverlayAction?.let { pending ->
+            outState.putString("pending_overlay_action", pending.first)
+            outState.putLong("pending_overlay_id", pending.second)
+        }
+        super.onSaveInstanceState(outState)
     }
 
     override fun onDestroy() {
@@ -96,6 +116,7 @@ class MainActivity : Activity() {
 
     private fun start(action: String, id: Long = -1L) {
         if (!overlayAllowed()) {
+            pendingOverlayAction = action to id
             requestOverlay()
             return
         }
@@ -106,6 +127,10 @@ class MainActivity : Activity() {
         try {
             startForegroundService(intent)
             askNotificationPermission()
+            // Service updates overlay_state asynchronously; refresh on the UI thread.
+            root.postDelayed({
+                if (!isFinishing && !isDestroyed) render()
+            }, 550L)
         } catch (error: RuntimeException) {
             Toast.makeText(this, error.localizedMessage ?: "Unable to start overlay", Toast.LENGTH_LONG).show()
         }
