@@ -9,7 +9,6 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.text.InputType
-import android.widget.Toast
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
