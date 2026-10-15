@@ -1,0 +1,435 @@
+package com.nexvary.floatingnote
+
+import android.app.Notification
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.PendingIntent
+import android.app.Service
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Intent
+import android.content.pm.ServiceInfo
+import android.graphics.PixelFormat
+import android.os.Build
+import android.os.Handler
+import android.os.IBinder
+import android.os.Looper
+import android.provider.Settings
+import android.text.Editable
+import android.text.InputType
+import android.text.TextWatcher
+import android.view.Gravity
+import android.view.MotionEvent
+import android.view.View
+import android.view.WindowManager
+import android.widget.EditText
+import android.widget.ImageView
+import android.widget.LinearLayout
+import android.widget.TextView
+import android.widget.Toast
+import kotlin.math.abs
+import kotlin.math.max
+import kotlin.math.min
+
+/**
+ * All windows are created only after the user grants SYSTEM_ALERT_WINDOW.
+ * The service is started from the visible Activity, then promoted to a foreground service.
+ * No accessibility service, screen reading, or network access is used.
+ */
+class FloatingNoteService : Service() {
+    companion object {
+        const val ACTION_START = "com.nexvary.floatingnote.START"
+        const val ACTION_OPEN = "com.nexvary.floatingnote.OPEN"
+        const val ACTION_NEW = "com.nexvary.floatingnote.NEW"
+        const val EXTRA_NOTE_ID = "note_id"
+        private const val CHANNEL = "floating_notes"
+        private const val NOTIFICATION_ID = 1001
+    }
+
+    private lateinit var wm: WindowManager
+    private lateinit var notes: NoteStore
+    private val handler = Handler(Looper.getMainLooper())
+    private var bubble: ImageView? = null
+    private var menu: LinearLayout? = null
+    private var editor: LinearLayout? = null
+    private var content: EditText? = null
+    private var bubbleParams: WindowManager.LayoutParams? = null
+    private var editorParams: WindowManager.LayoutParams? = null
+    private var currentNoteId = -1L
+    private var delayedSave: Runnable? = null
+    private var foreground = false
+
+    override fun onCreate() {
+        super.onCreate()
+        wm = getSystemService(WINDOW_SERVICE) as WindowManager
+        notes = NoteStore(this)
+    }
+
+    override fun onBind(intent: Intent?): IBinder? = null
+
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        if (!Settings.canDrawOverlays(this)) {
+            Toast.makeText(this, R.string.permission_denied, Toast.LENGTH_SHORT).show()
+            stopSelf()
+            return START_NOT_STICKY
+        }
+        if (!foreground) {
+            notificationChannel()
+            val notification = notification()
+            if (Build.VERSION.SDK_INT >= 34) {
+                startForeground(
+                    NOTIFICATION_ID,
+                    notification,
+                    ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
+                )
+            } else {
+                startForeground(NOTIFICATION_ID, notification)
+            }
+            foreground = true
+        }
+        if (bubble == null) createBubble()
+        getSharedPreferences("overlay_state", MODE_PRIVATE)
+            .edit().putBoolean("active", true).apply()
+
+        when (intent?.action) {
+            ACTION_NEW -> openEditor(notes.create())
+            ACTION_OPEN -> {
+                val id = intent.getLongExtra(EXTRA_NOTE_ID, -1L)
+                openEditor(if (id >= 0 && notes.get(id) != null) id else preferredNote())
+            }
+            else -> Unit
+        }
+        return START_STICKY
+    }
+
+    private fun notificationChannel() {
+        val manager = getSystemService(NotificationManager::class.java)
+        if (manager.getNotificationChannel(CHANNEL) == null) {
+            manager.createNotificationChannel(
+                NotificationChannel(
+                    CHANNEL,
+                    getString(R.string.app_name),
+                    NotificationManager.IMPORTANCE_LOW
+                )
+            )
+        }
+    }
+
+    private fun notification(): Notification {
+        val intent = Intent(this, MainActivity::class.java)
+        val pending = PendingIntent.getActivity(
+            this, 0, intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        return Notification.Builder(this, CHANNEL)
+            .setSmallIcon(R.drawable.ic_note)
+            .setContentTitle(getString(R.string.notification_title))
+            .setContentText(getString(R.string.notification_text))
+            .setContentIntent(pending)
+            .setVisibility(Notification.VISIBILITY_PRIVATE)
+            .setOngoing(true)
+            .build()
+    }
+
+    private fun floatingParams(width: Int, height: Int, focusable: Boolean): WindowManager.LayoutParams {
+        val flags = WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
+            WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
+            (if (focusable) 0 else WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE)
+        return WindowManager.LayoutParams(
+            width, height, WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
+            flags, PixelFormat.TRANSLUCENT
+        ).apply {
+            gravity = Gravity.TOP or Gravity.LEFT
+            if (focusable) softInputMode = WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE
+        }
+    }
+
+    private fun screenWidth(): Int = resources.displayMetrics.widthPixels
+    private fun screenHeight(): Int = resources.displayMetrics.heightPixels
+
+    private fun createBubble() {
+        val icon = icon(R.drawable.ic_note, getString(R.string.open), Palette.PANEL, 62) {
+            toggleMenu()
+        }
+        icon.background = roundShape(Palette.PANEL, 31, Palette.MINT)
+        icon.elevation = dp(12).toFloat()
+        val prefs = getSharedPreferences("overlay_position", MODE_PRIVATE)
+        val p = floatingParams(dp(62), dp(62), false).apply {
+            x = prefs.getInt("x", dp(10)).coerceIn(0, max(0, screenWidth() - dp(62)))
+            y = prefs.getInt("y", dp(220)).coerceIn(dp(28), max(dp(28), screenHeight() - dp(100)))
+        }
+        val threshold = dp(8)
+        var firstX = 0f
+        var firstY = 0f
+        var initialX = 0
+        var initialY = 0
+        var moving = false
+        icon.setOnTouchListener { v, event ->
+            when (event.actionMasked) {
+                MotionEvent.ACTION_DOWN -> {
+                    firstX = event.rawX
+                    firstY = event.rawY
+                    initialX = p.x
+                    initialY = p.y
+                    moving = false
+                    true
+                }
+                MotionEvent.ACTION_MOVE -> {
+                    val dx = event.rawX - firstX
+                    val dy = event.rawY - firstY
+                    if (abs(dx) > threshold || abs(dy) > threshold) moving = true
+                    if (moving) {
+                        p.x = (initialX + dx.toInt()).coerceIn(0, max(0, screenWidth() - dp(62)))
+                        p.y = (initialY + dy.toInt()).coerceIn(dp(28), max(dp(28), screenHeight() - dp(100)))
+                        wm.updateViewLayout(icon, p)
+                        removeMenu()
+                    }
+                    true
+                }
+                MotionEvent.ACTION_UP -> {
+                    if (moving) {
+                        val dockRight = p.x > (screenWidth() - dp(62)) / 2
+                        p.x = if (dockRight) max(0, screenWidth() - dp(66)) else dp(4)
+                        wm.updateViewLayout(icon, p)
+                        getSharedPreferences("overlay_position", MODE_PRIVATE).edit()
+                            .putInt("x", p.x).putInt("y", p.y).apply()
+                    } else {
+                        v.performClick()
+                    }
+                    true
+                }
+                MotionEvent.ACTION_CANCEL -> true
+                else -> false
+            }
+        }
+        wm.addView(icon, p)
+        bubble = icon
+        bubbleParams = p
+    }
+
+    private fun toggleMenu() {
+        if (menu != null) {
+            removeMenu()
+            return
+        }
+        val bar = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(7), dp(7), dp(7), dp(7))
+            background = roundShape(Palette.PANEL, 25, Palette.MINT)
+            elevation = dp(12).toFloat()
+        }
+
+        fun add(iconId: Int, desc: Int, action: () -> Unit) {
+            val button = icon(iconId, getString(desc), Palette.PANEL_LIGHT, 43) {
+                removeMenu()
+                action()
+            }
+            bar.addView(button)
+            if (iconId != R.drawable.ic_close) {
+                bar.addView(View(this), LinearLayout.LayoutParams(dp(4), 1))
+            }
+        }
+
+        add(R.drawable.ic_open, R.string.open) { openEditor(preferredNote()) }
+        add(R.drawable.ic_add, R.string.new_note) { openEditor(notes.create()) }
+        add(R.drawable.ic_copy, R.string.copy) { copyNote() }
+        add(R.drawable.ic_paste, R.string.paste) { pasteNote() }
+        add(R.drawable.ic_close, R.string.close) { stopSelf() }
+
+        val p = floatingParams(-2, -2, false)
+        val b = bubbleParams ?: return
+        p.x = (b.x - dp(195)).coerceIn(0, max(0, screenWidth() - dp(254)))
+        p.y = (b.y + dp(67)).coerceAtMost(max(0, screenHeight() - dp(80)))
+        wm.addView(bar, p)
+        menu = bar
+    }
+
+    private fun removeMenu() {
+        removeWindow(menu)
+        menu = null
+    }
+
+    private fun preferredNote(): Long {
+        val savedId = getSharedPreferences("overlay_state", MODE_PRIVATE)
+            .getLong("last_note", -1L)
+        if (savedId != -1L && notes.get(savedId) != null) return savedId
+        return notes.all().firstOrNull()?.id ?: notes.create()
+    }
+
+    private fun openEditor(noteId: Long) {
+        removeMenu()
+        closeEditor()
+        val note = notes.get(noteId) ?: return
+        currentNoteId = noteId
+        getSharedPreferences("overlay_state", MODE_PRIVATE).edit()
+            .putLong("last_note", noteId).apply()
+
+        val card = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(12), dp(12), dp(12), dp(12))
+            background = roundShape(Palette.PANEL, 22, Palette.MINT)
+            elevation = dp(12).toFloat()
+        }
+        val header = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+        val heading = label(getString(R.string.untitled), 15f, Palette.MINT, true)
+        header.addView(heading, LinearLayout.LayoutParams(0, dp(45), 1f))
+        header.addView(icon(R.drawable.ic_copy, getString(R.string.copy), Palette.PANEL, 40) {
+            copyNote()
+        })
+        header.addView(icon(R.drawable.ic_paste, getString(R.string.paste), Palette.PANEL, 40) {
+            pasteNote()
+        })
+        header.addView(icon(R.drawable.ic_collapse, getString(R.string.collapse), Palette.PANEL, 40) {
+            closeEditor()
+        })
+        card.addView(header)
+        card.addSpace(this, 8)
+
+        val input = EditText(this).apply {
+            setText(note.body)
+            setTextColor(Palette.WHITE)
+            setHintTextColor(Palette.MUTED)
+            hint = getString(R.string.placeholder)
+            textSize = 16f
+            gravity = Gravity.TOP or Gravity.START
+            textDirection = View.TEXT_DIRECTION_FIRST_STRONG
+            setPadding(dp(10), dp(12), dp(10), dp(12))
+            background = roundShape(Palette.PANEL_LIGHT, 12)
+            inputType = InputType.TYPE_CLASS_TEXT or
+                InputType.TYPE_TEXT_FLAG_MULTI_LINE or
+                InputType.TYPE_TEXT_FLAG_CAP_SENTENCES
+            isSingleLine = false
+            minLines = 8
+        }
+        card.addView(input, LinearLayout.LayoutParams(-1, 0, 1f))
+        heading.text = NoteText.title(note.body).ifBlank { getString(R.string.untitled) }
+        input.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
+                heading.text = NoteText.title(s?.toString().orEmpty())
+                    .ifBlank { getString(R.string.untitled) }
+                delayedSave?.let(handler::removeCallbacks)
+                delayedSave = Runnable { saveNow() }.also { handler.postDelayed(it, 350) }
+            }
+            override fun afterTextChanged(s: Editable?) = Unit
+        })
+
+        val width = min(dp(380), max(dp(240), screenWidth() - dp(24)))
+        val height = min(dp(390), max(dp(230), screenHeight() - dp(190)))
+        val p = floatingParams(width, height, true).apply {
+            x = (screenWidth() - width) / 2
+            y = dp(100)
+        }
+        val dragThreshold = dp(7)
+        var fromX = 0f
+        var fromY = 0f
+        var startX = 0
+        var startY = 0
+        header.setOnTouchListener { _, event ->
+            when (event.actionMasked) {
+                MotionEvent.ACTION_DOWN -> {
+                    fromX = event.rawX
+                    fromY = event.rawY
+                    startX = p.x
+                    startY = p.y
+                    true
+                }
+                MotionEvent.ACTION_MOVE -> {
+                    if (abs(event.rawX - fromX) > dragThreshold ||
+                        abs(event.rawY - fromY) > dragThreshold
+                    ) {
+                        p.x = (startX + (event.rawX - fromX).toInt())
+                            .coerceIn(0, max(0, screenWidth() - width))
+                        p.y = (startY + (event.rawY - fromY).toInt())
+                            .coerceIn(dp(28), max(dp(28), screenHeight() - dp(100)))
+                        wm.updateViewLayout(card, p)
+                    }
+                    true
+                }
+                MotionEvent.ACTION_UP -> true
+                else -> false
+            }
+        }
+        wm.addView(card, p)
+        editor = card
+        editorParams = p
+        content = input
+    }
+
+    private fun saveNow() {
+        val input = content ?: return
+        if (currentNoteId >= 0) notes.update(currentNoteId, input.text.toString())
+    }
+
+    private fun closeEditor() {
+        delayedSave?.let(handler::removeCallbacks)
+        delayedSave = null
+        saveNow()
+        removeWindow(editor)
+        editor = null
+        content = null
+        editorParams = null
+        currentNoteId = -1L
+    }
+
+    private fun copyNote() {
+        val body = content?.text?.toString()
+            ?: notes.get(preferredNote())?.body.orEmpty()
+        if (body.isEmpty()) {
+            toast(R.string.nothing_to_copy)
+            return
+        }
+        val clipboard = getSystemService(CLIPBOARD_SERVICE) as ClipboardManager
+        clipboard.setPrimaryClip(ClipData.newPlainText(getString(R.string.app_name), body))
+        toast(R.string.copied)
+    }
+
+    private fun pasteNote() {
+        if (content == null) openEditor(preferredNote())
+        val edit = content ?: return
+        edit.requestFocus()
+        val value = try {
+            val clipboard = getSystemService(CLIPBOARD_SERVICE) as ClipboardManager
+            clipboard.primaryClip?.takeIf { it.itemCount > 0 }
+                ?.getItemAt(0)?.coerceToText(this)?.toString()
+        } catch (_: SecurityException) {
+            null
+        }
+        if (value.isNullOrEmpty()) {
+            toast(R.string.clipboard_unavailable)
+            return
+        }
+        val start = max(0, edit.selectionStart)
+        val end = max(0, edit.selectionEnd)
+        edit.text.replace(min(start, end), max(start, end), value)
+    }
+
+    private fun toast(res: Int) {
+        Toast.makeText(this, res, Toast.LENGTH_SHORT).show()
+    }
+
+    private fun removeWindow(view: View?) {
+        if (view == null) return
+        try {
+            wm.removeView(view)
+        } catch (_: IllegalArgumentException) {
+            // Overlay could already be detached after permission is revoked.
+        }
+    }
+
+    override fun onDestroy() {
+        closeEditor()
+        removeMenu()
+        removeWindow(bubble)
+        bubble = null
+        bubbleParams = null
+        getSharedPreferences("overlay_state", MODE_PRIVATE)
+            .edit().putBoolean("active", false).apply()
+        notes.close()
+        super.onDestroy()
+    }
+}

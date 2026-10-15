@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">NEXVARY نوتة عائمة</string>
+    <string name="tagline">أفكارك أمامك بضغطة واحدة</string>
+    <string name="overlay_title">مساحة الملاحظات العائمة</string>
+    <string name="overlay_description">احتفظ بملاحظاتك فوق التطبيقات الأخرى.</string>
+    <string name="permission_needed">السماح بالظهور فوق التطبيقات</string>
+    <string name="permission_hint">يحتاج أندرويد إلى إذنك لإظهار النوتة العائمة.</string>
+    <string name="grant_permission">منح الإذن</string>
+    <string name="start_bubble">تشغيل النوتة العائمة</string>
+    <string name="stop_bubble">إيقاف النوتة العائمة</string>
+    <string name="my_notes">ملاحظاتي</string>
+    <string name="new_note">ملاحظة جديدة</string>
+    <string name="empty_notes">لا توجد ملاحظات بعد. أنشئ ملاحظتك الأولى.</string>
+    <string name="untitled">ملاحظة دون عنوان</string>
+    <string name="placeholder">اكتب أفكارك هنا…</string>
+    <string name="copy">نسخ الملاحظة</string>
+    <string name="paste">لصق النص</string>
+    <string name="close">إيقاف النوتة العائمة</string>
+    <string name="open">فتح الملاحظة</string>
+    <string name="collapse">تصغير الملاحظة</string>
+    <string name="copied">تم نسخ الملاحظة</string>
+    <string name="nothing_to_copy">لا يوجد نص لنسخه</string>
+    <string name="clipboard_unavailable">الحافظة فارغة أو غير متاحة</string>
+    <string name="delete">حذف</string>
+    <string name="delete_question">هل تريد حذف هذه الملاحظة؟</string>
+    <string name="cancel">إلغاء</string>
+    <string name="notification_title">النوتة العائمة تعمل</string>
+    <string name="notification_text">اضغط لإدارة الملاحظات أو أوقف الأيقونة من التطبيق.</string>
+    <string name="permission_denied">لم يتم منح إذن الظهور فوق التطبيقات</string>
+</resources>

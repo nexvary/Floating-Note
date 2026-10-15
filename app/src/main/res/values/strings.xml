@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">NEXVARY Floating Note</string>
+    <string name="tagline">Your ideas, one tap away</string>
+    <string name="overlay_title">Floating workspace</string>
+    <string name="overlay_description">Keep your notes accessible over other apps.</string>
+    <string name="permission_needed">Allow display over other apps</string>
+    <string name="permission_hint">Android requires your permission before floating notes can appear.</string>
+    <string name="grant_permission">Grant permission</string>
+    <string name="start_bubble">Enable floating note</string>
+    <string name="stop_bubble">Stop floating note</string>
+    <string name="my_notes">My notes</string>
+    <string name="new_note">New note</string>
+    <string name="empty_notes">No notes yet. Create your first note.</string>
+    <string name="untitled">Untitled note</string>
+    <string name="placeholder">Write anything here…</string>
+    <string name="copy">Copy note</string>
+    <string name="paste">Paste text</string>
+    <string name="close">Stop floating note</string>
+    <string name="open">Open note</string>
+    <string name="collapse">Minimize note</string>
+    <string name="copied">Note copied</string>
+    <string name="nothing_to_copy">No text to copy</string>
+    <string name="clipboard_unavailable">Clipboard is empty or unavailable</string>
+    <string name="delete">Delete</string>
+    <string name="delete_question">Delete this note?</string>
+    <string name="cancel">Cancel</string>
+    <string name="notification_title">Floating Note is active</string>
+    <string name="notification_text">Tap to manage notes, or stop the bubble from the app.</string>
+    <string name="permission_denied">Floating permission has not been granted</string>
+</resources>
