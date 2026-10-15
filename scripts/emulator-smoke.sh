@@ -40,16 +40,7 @@ adb shell am start -W -n "$PACKAGE/.MainActivity"
 sleep 6
 # Cold emulator boots occasionally display a Pixel Launcher ANR dialog.
 # Dismiss the SYSTEM dialog instead of altering our non-exported service.
-for attempt in 1 2 3; do
-  adb shell uiautomator dump /sdcard/nexvary-window.xml || true
-  adb pull /sdcard/nexvary-window.xml /tmp/nexvary-window.xml >/dev/null || true
-  if grep -q 'responding' /tmp/nexvary-window.xml; then
-    tap_accessible "Wait" || true
-    sleep 5
-  else
-    break
-  fi
-done
+# An AOSP emulator avoids Google Pixel Launcher ANR on hosted runners.
 adb exec-out screencap -p > screenshots/01-home.png
 
 # Start the non-exported foreground service through the app's own button.
@@ -60,13 +51,29 @@ fi
 sleep 3
 adb exec-out screencap -p > screenshots/02-bubble.png
 
-# Floating bubble has a deterministic default position: x=10dp, y=220dp.
-adb shell input tap 105 660
+# Compute absolute tap positions from density. Windows are TYPE_APPLICATION_OVERLAY,
+# and UIAutomator may omit their accessibility hierarchy.
+density="$(adb shell wm density | awk '{print $3}' | tr -d '\r')"
+python3 - "$density" <<'PY'
+import subprocess
+import sys
+scale = int(sys.argv[1]) / 160.0
+def tap(x_dp,y_dp):
+    subprocess.run(["adb","shell","input","tap",
+                    str(round(x_dp * scale)),str(round(y_dp * scale))],check=True)
+tap(10 + 31,220 + 31)  # 62dp bubble center
+PY
 sleep 2
 adb exec-out screencap -p > screenshots/03-menu.png
-# Android UiAutomator may omit TYPE_APPLICATION_OVERLAY windows from its hierarchy.
-# Tap the first visible menu button in the fixed Pixel 6 emulator viewport.
-adb shell input tap 72 798
+python3 - "$density" <<'PY'
+import subprocess
+import sys
+scale = int(sys.argv[1]) / 160.0
+# The first of five buttons in the horizontal quick-action menu.
+subprocess.run(["adb","shell","input","tap",
+                str(round((7 + 21.5) * scale)),
+                str(round((220 + 67 + 7 + 21.5) * scale))],check=True)
+PY
 sleep 3
 adb exec-out screencap -p > screenshots/04-editor.png
 

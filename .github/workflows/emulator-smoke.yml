@@ -3,6 +3,8 @@ name: Android Emulator Smoke
 # Emulator cold boots intermittently ANR in Pixel Launcher on GitHub runners.
 # Keep this independent diagnostic manual until emulator infrastructure is stable.
 on:
+  push:
+    branches: [dev/foundation]
   workflow_dispatch:
 
 permissions:
@@ -40,9 +42,9 @@ jobs:
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 35
-          target: google_apis
+          target: default
           arch: x86_64
-          profile: pixel_6
+          profile: pixel_2
           ram-size: 4096M
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
           disable-animations: true
