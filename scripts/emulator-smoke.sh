@@ -49,7 +49,9 @@ adb exec-out screencap -p > screenshots/02-bubble.png
 adb shell input tap 105 660
 sleep 2
 adb exec-out screencap -p > screenshots/03-menu.png
-tap_accessible "Open note"
+# Android UiAutomator may omit TYPE_APPLICATION_OVERLAY windows from its hierarchy.
+# Tap the first visible menu button in the fixed Pixel 6 emulator viewport.
+adb shell input tap 72 798
 sleep 3
 adb exec-out screencap -p > screenshots/04-editor.png
 
