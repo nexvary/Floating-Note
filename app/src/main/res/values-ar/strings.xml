@@ -58,4 +58,6 @@
     <string name="password_mismatch">كلمتا المرور غير متطابقتين.</string>
     <string name="secure_restore_failed">تعذرت معالجة النسخة المشفرة. تحقق من كلمة المرور وسلامة الملف ومساحة التخزين.</string>
     <string name="too_many_windows">يمكن فتح أربع ملاحظات عائمة. صغّر إحداها لفتح ملاحظة أخرى.</string>
+    <string name="toggle_checklist">تبديل حالة المهمة</string>
+    <string name="mark_bold">تنسيق غامق</string>
 </resources>

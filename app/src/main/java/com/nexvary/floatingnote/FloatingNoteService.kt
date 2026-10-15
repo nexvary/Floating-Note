@@ -41,6 +41,7 @@ class FloatingNoteService : Service() {
         const val ACTION_START = "com.nexvary.floatingnote.START"
         const val ACTION_OPEN = "com.nexvary.floatingnote.OPEN"
         const val ACTION_NEW = "com.nexvary.floatingnote.NEW"
+        const val ACTION_CLOSE_EDITOR = "com.nexvary.floatingnote.CLOSE_EDITOR"
         const val EXTRA_NOTE_ID = "note_id"
         private const val CHANNEL = "floating_notes"
         private const val NOTIFICATION_ID = 1001
@@ -90,6 +91,12 @@ class FloatingNoteService : Service() {
                 startForeground(NOTIFICATION_ID, notification)
             }
             foreground = true
+        }
+        if (intent?.action == ACTION_CLOSE_EDITOR) {
+            val id = intent.getLongExtra(EXTRA_NOTE_ID, -1L)
+            if (id >= 0) closeEditor(id)
+            if (bubble == null) stopSelf()
+            return START_NOT_STICKY
         }
         if (bubble == null) createBubble()
         getSharedPreferences("overlay_state", MODE_PRIVATE)
@@ -335,6 +342,29 @@ class FloatingNoteService : Service() {
         }
         val resize = icon(R.drawable.ic_resize, getString(R.string.resize_note),
             Palette.PANEL_LIGHT, 36) {}
+        footer.addView(icon(R.drawable.ic_checklist,
+            getString(R.string.toggle_checklist), Palette.PANEL_LIGHT, 36) {
+            val selection = input.selectionStart.coerceAtLeast(0)
+            val editable = input.text
+            var start = selection
+            while (start > 0 && editable[start - 1] != '\n') start--
+            var end = selection
+            while (end < editable.length && editable[end] != '\n') end++
+            val updated = NoteFormatting.toggleTask(
+                editable.subSequence(start, end).toString())
+            editable.replace(start, end, updated)
+            input.setSelection((start + updated.length).coerceIn(0, editable.length))
+        })
+        footer.addView(icon(R.drawable.ic_bold,
+            getString(R.string.mark_bold), Palette.PANEL_LIGHT, 36) {
+            val editable = input.text
+            val from = input.selectionStart.coerceAtLeast(0)
+            val to = input.selectionEnd.coerceAtLeast(from)
+            val selected = editable.subSequence(from, to).toString()
+            val updated = NoteFormatting.bold(selected)
+            editable.replace(from, to, updated)
+            input.setSelection((from + updated.length / 2).coerceIn(0, editable.length))
+        })
         footer.addView(resize)
         card.addView(footer)
         heading.text = NoteText.title(note.body).ifBlank { getString(R.string.untitled) }

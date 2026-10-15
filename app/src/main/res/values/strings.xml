@@ -58,4 +58,6 @@
     <string name="password_mismatch">Passwords do not match.</string>
     <string name="secure_restore_failed">Could not process protected backup. Check password, file integrity and available storage.</string>
     <string name="too_many_windows">You can open up to four floating notes. Minimize one to open another.</string>
+    <string name="toggle_checklist">Toggle checklist item</string>
+    <string name="mark_bold">Bold Markdown</string>
 </resources>

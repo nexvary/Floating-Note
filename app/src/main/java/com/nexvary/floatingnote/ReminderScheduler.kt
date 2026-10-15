@@ -56,7 +56,7 @@ object ReminderScheduler {
                 NotificationChannel(
                     CHANNEL, context.getString(R.string.reminders),
                     NotificationManager.IMPORTANCE_HIGH
-                )
+                ).apply { lockscreenVisibility = Notification.VISIBILITY_PRIVATE }
             )
         }
     }
@@ -90,6 +90,7 @@ class ReminderReceiver : BroadcastReceiver() {
             .setContentTitle(note.title.ifBlank { context.getString(R.string.untitled) })
             .setContentText(NoteText.preview(note.body))
             .setAutoCancel(true)
+            .setVisibility(Notification.VISIBILITY_PRIVATE)
             .setContentIntent(pending)
             .build()
         context.getSystemService(NotificationManager::class.java)

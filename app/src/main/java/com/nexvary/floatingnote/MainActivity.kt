@@ -305,6 +305,7 @@ class MainActivity : Activity() {
                 .setNegativeButton(R.string.cancel, null)
                 .setPositiveButton(R.string.delete) { _, _ ->
                     ReminderScheduler.cancel(this, note.id)
+                    if (isRunning()) start(FloatingNoteService.ACTION_CLOSE_EDITOR, note.id)
                     database.delete(note.id)
                     displayNotes()
                 }.show()
