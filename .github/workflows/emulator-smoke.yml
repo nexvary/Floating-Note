@@ -64,4 +64,5 @@ jobs:
             screenshots/
             smoke-diagnostics.txt
             revoked-overlay-services.txt
+            closed-services.txt
           if-no-files-found: warn

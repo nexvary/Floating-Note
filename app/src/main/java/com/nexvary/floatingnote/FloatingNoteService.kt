@@ -404,8 +404,12 @@ class FloatingNoteService : Service() {
             min(dp(230), maxWidth), maxWidth)
         val height = sizePrefs.getInt("height", dp(360)).coerceIn(
             min(dp(240), maxHeight), maxHeight)
-        val p = floatingParams(width, height, true).apply {
-            x = (screenWidth() - width) / 2
+        // Leave the docked bubble accessible at the edge even on compact displays.
+        val bubbleOnLeft = (bubbleParams?.x ?: 0) <= screenWidth() / 2
+        val startingWidth = min(width, max(dp(230), screenWidth() - dp(80)))
+        val p = floatingParams(startingWidth, height, true).apply {
+            val preferredX = if (bubbleOnLeft) dp(72) else dp(8)
+            x = preferredX.coerceAtMost(max(0, screenWidth() - startingWidth))
             y = (dp(95) + editors.size * dp(40))
                 .coerceAtMost(max(dp(28), screenHeight() - height - dp(60)))
         }
@@ -413,7 +417,7 @@ class FloatingNoteService : Service() {
         val minHeight = min(dp(220), maxHeight)
         var resizeStartX = 0f
         var resizeStartY = 0f
-        var initialWidth = width
+        var initialWidth = startingWidth
         var initialHeight = height
         resize.setOnTouchListener { _, event ->
             when (event.actionMasked) {
@@ -474,6 +478,7 @@ class FloatingNoteService : Service() {
         }
         if (!addWindow(card, p)) return
         editors[noteId] = EditorSession(card, input, p)
+        keepBubbleAboveEditor()
         input.setOnFocusChangeListener { _, focused ->
             if (focused) activeNoteId = noteId
         }
@@ -524,6 +529,22 @@ class FloatingNoteService : Service() {
 
     private fun toast(res: Int) {
         Toast.makeText(this, res, Toast.LENGTH_SHORT).show()
+    }
+
+    /**
+     * Android overlays are Z-ordered by addView. Keep the quick-action bubble on top
+     * of the editing window, otherwise an open note can cover its own controls.
+     */
+    private fun keepBubbleAboveEditor() {
+        val icon = bubble ?: return
+        val params = bubbleParams ?: return
+        try {
+            wm.removeViewImmediate(icon)
+            if (!addWindow(icon, params)) stopSelf()
+        } catch (error: RuntimeException) {
+            Log.w("NEXVARYFloating", "Could not keep quick actions accessible", error)
+            stopSelf()
+        }
     }
 
     /** Window-manager calls can fail when overlay access is revoked while a note is open. */

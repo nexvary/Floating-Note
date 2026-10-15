@@ -77,6 +77,35 @@ PY
 sleep 3
 adb exec-out screencap -p > screenshots/04-editor.png
 
+# Critical UX: bubble must remain above the note while an editor is open.
+python3 - "$density" <<'PY'
+import subprocess
+import time
+import sys
+scale = int(sys.argv[1]) / 160.0
+def tap(x, y):
+    subprocess.run(["adb", "shell", "input", "tap",
+                    str(round(x * scale)), str(round(y * scale))], check=True)
+tap(41, 251)  # bubble above the floating editor
+time.sleep(2)
+with open("screenshots/05-menu-over-editor.png", "wb") as image:
+    image.write(subprocess.check_output(["adb", "exec-out", "screencap", "-p"]))
+tap(216.5, 315.5)  # stop button is the last of the five bubble controls
+PY
+sleep 4
+adb shell dumpsys activity services "$PACKAGE" > closed-services.txt
+if grep -q FloatingNoteService closed-services.txt; then
+  echo "ERROR: close button did not stop the service" >&2
+  exit 1
+fi
+
+# Restart after close so the permission-revocation scenario starts independently.
+adb shell am force-stop "$PACKAGE"
+adb shell am start -W -n "$PACKAGE/.MainActivity"
+sleep 3
+tap_accessible "Enable floating note"
+sleep 3
+
 {
   echo "Android SDK:"
   adb shell getprop ro.build.version.sdk
