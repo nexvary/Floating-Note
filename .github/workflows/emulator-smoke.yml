@@ -59,4 +59,5 @@ jobs:
           path: |
             screenshots/
             smoke-diagnostics.txt
+            revoked-overlay-services.txt
           if-no-files-found: warn

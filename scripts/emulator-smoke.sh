@@ -89,3 +89,13 @@ for image in screenshots/*.png; do
   test -s "$image"
 done
 grep -q FloatingNoteService smoke-diagnostics.txt
+
+# Verify runtime permission revocation stops the foreground service and overlays.
+adb shell appops set "$PACKAGE" SYSTEM_ALERT_WINDOW deny
+sleep 5
+adb shell dumpsys activity services "$PACKAGE" > revoked-overlay-services.txt
+if grep -q FloatingNoteService revoked-overlay-services.txt; then
+  echo "ERROR: service remains active after overlay permission revocation" >&2
+  exit 1
+fi
+
