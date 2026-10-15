@@ -1,8 +1,8 @@
 name: Android Emulator Smoke
 
+# Emulator cold boots intermittently ANR in Pixel Launcher on GitHub runners.
+# Keep this independent diagnostic manual until emulator infrastructure is stable.
 on:
-  push:
-    branches: [dev/foundation]
   workflow_dispatch:
 
 permissions:

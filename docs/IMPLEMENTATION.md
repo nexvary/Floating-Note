@@ -44,3 +44,11 @@
 - Upgrade real v1 database; preserve data and IDs.
 - Reminders: schedule, change, cancel, reboot, battery saver and denied notifications.
 - Android 8, 13 and 15+; narrow viewport, RTL, large font and TalkBack focus.
+
+## Emulator observation (2026-10-15)
+
+- Android 15 emulator actually launched the app, circular bubble and all five quick-action icons.
+- Real screenshots are in GitHub Actions run 38768910257 (artifact of the failed smoke job).
+- The emulator runner intermittently displayed a system Pixel Launcher ANR; subsequent UI verification was blocked.
+- To avoid false-red CI on every code push, emulator smoke is available through manual workflow_dispatch only.
+- Editor interaction, all button actions and physical device testing are NOT fully verified.
