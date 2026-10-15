@@ -13,6 +13,10 @@ permissions:
 jobs:
   emulator-smoke:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        api-level: [26, 35]
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
@@ -41,7 +45,7 @@ jobs:
       - name: Boot, run database regression tests and smoke test emulator
         uses: reactivecircus/android-emulator-runner@v2
         with:
-          api-level: 35
+          api-level: ${{ matrix.api-level }}
           target: default
           arch: x86_64
           profile: pixel_2
@@ -55,7 +59,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: NEXVARY-Floating-Note-emulator-smoke
+          name: NEXVARY-Floating-Note-emulator-${{ matrix.api-level }}
           path: |
             screenshots/
             smoke-diagnostics.txt

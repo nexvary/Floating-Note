@@ -53,3 +53,11 @@ Evidence: https://github.com/nexvary/Floating-Note/actions/runs/38774157345
 
 The 0.3.1 follow-up refreshes the home page's running-state control and resumes
 a pending note after the system overlay permission flow; its own CI must pass.
+
+## 0.3.2 regression coverage
+
+The emulator suite now runs real instrumentation tests of SQLite migration, persistence,
+search and import idempotence, and Android-provider AES-GCM backup decryption. It also
+checks that the floating foreground service ends after the overlay permission is revoked.
+Android 8 (API 26) and Android 15 (API 35) run independently in GitHub Actions;
+verify both job conclusions before claiming cross-version validation.

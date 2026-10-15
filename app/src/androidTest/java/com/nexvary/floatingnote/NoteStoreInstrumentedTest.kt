@@ -42,7 +42,7 @@ class NoteStoreInstrumentedTest {
         original.execSQL("CREATE INDEX notes_updated_idx ON notes(updated_at DESC)")
         original.execSQL(
             "INSERT INTO notes (id, body, updated_at) VALUES (?, ?, ?)",
-            arrayOf(47L, "عنوان قديم\nتفاصيل أصلية", 123_456L)
+            arrayOf<Any>(47L, "عنوان قديم\nتفاصيل أصلية", 123_456L)
         )
         original.version = 1
         original.close()
@@ -113,6 +113,33 @@ class NoteStoreInstrumentedTest {
             assertFalse(store.update(-1, "Attack"))
             assertFalse(store.delete(-1))
             assertEquals("Private original", store.get(id)?.body)
+        }
+    }
+
+    @Test
+    fun encryptedBackupWorksOnDeviceCryptoProviderAndRejectsWrongPassword() {
+        val passphrase = "Device-Test-Key-123456".toCharArray()
+        val note = Note(-1, "ملحوظة سرية\nPrivate content", 2222L, 2, true, null)
+        val sink = java.io.ByteArrayOutputStream()
+        try {
+            SecureNoteArchive.export(listOf(note), passphrase, sink)
+            val raw = sink.toByteArray()
+            assertFalse(String(raw, Charsets.UTF_8).contains("Private content"))
+            val restored = SecureNoteArchive.read(
+                java.io.ByteArrayInputStream(raw), passphrase
+            )
+            assertEquals(note.body, restored.single().body)
+            assertEquals(note.color, restored.single().color)
+            try {
+                SecureNoteArchive.read(
+                    java.io.ByteArrayInputStream(raw), "Wrong-Password-123456".toCharArray()
+                )
+                throw AssertionError("Wrong password unexpectedly decrypted backup")
+            } catch (_: IllegalArgumentException) {
+                // Authenticated encryption rejected the wrong key.
+            }
+        } finally {
+            passphrase.fill('\u0000')
         }
     }
 
