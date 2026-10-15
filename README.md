@@ -2,7 +2,7 @@
 
 Offline-first Android floating notes, optimized for Arabic and English.
 
-## Version 0.3.1 (development — dev/foundation)
+## Version 0.3.2 (development — dev/foundation)
 
 - A draggable circular bubble with quick actions: open, create, copy, paste, stop.
 - Up to four simultaneous floating note editors, independently autosaved and minimized.
@@ -36,3 +36,10 @@ text into another app's input field. Reminders are inexact and Android may delay
 Device testing is still mandatory, including focus/overlay behavior and Android 15+.
 
 See [implementation tracker](docs/IMPLEMENTATION.md) for verified/pending status.
+
+### On-device database tests
+
+Android 15 AOSP CI executes `:app:connectedDebugAndroidTest` before the overlay smoke test.
+The instrumentation suite validates a real SQLite v1-to-v2 migration, pinned note
+ordering, persistence, Arabic search, merge deduplication and invalid-ID handling.
+For local testing use an emulator and `gradle :app:connectedDebugAndroidTest`.
