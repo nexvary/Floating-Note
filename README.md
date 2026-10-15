@@ -1,44 +1,36 @@
 # NEXVARY Floating Note
 
-Native Android notes that stay accessible above other apps, built for Arabic and English.
+Native Android notes that stay accessible above other apps. Development happens on
+the dev/foundation branch.
 
-**Development branch:** [dev/foundation](https://github.com/nexvary/Floating-Note/tree/dev/foundation)  
-**Status:** Android 0.1.0 initial implementation, pending CI and device validation.
+## Version 0.2.0 (development)
 
-## Version 0.1.0 scope
+- Draggable circular bubble with edge docking, saved position and a 5-action menu.
+- Floating note editor with resize handle, remembered size, color and autosave.
+- Local SQLite storage with multiple notes, search, pinned sorting and five themes.
+- User-created reminders, scheduled as inexact alarms without special exact-alarm access.
+- Android document-picker export/import of JSON backups (merge-only).
+- English and Arabic localization, no internet or accessibility permission.
 
-- Draggable, circular floating bubble with edge docking and saved position.
-- Bubble quick actions: open, new note, copy, paste, stop floating note.
-- Movable floating editor with collapse, clipboard actions and autosave.
-- Multiple notes in a local SQLite database; create, open, delete.
-- Native Arabic/RTL and English strings.
-- Runtime overlay-permission onboarding and foreground notification.
-- No network access, advertisements, accessibility permission, or telemetry.
+## Build and download
 
-## Build
+Java 17, Gradle 8.13 and Android SDK 36:
 
-Requires JDK 17, Android SDK 36, and Gradle 8.13. Open with Android Studio or build with:
+    gradle :app:testDebugUnitTest :app:lintDebug :app:assembleDebug
 
-    gradle :app:assembleDebug :app:testDebugUnitTest :app:lintDebug
+On successful GitHub Actions runs download the NEXVARY-Floating-Note-debug artifact
+and extract app-debug.apk. Allow Display over other apps, then launch the floating
+bubble from the app. Android 13+ notification permission is required for reminders.
 
-GitHub Actions builds and uploads the **debug APK** as a workflow artifact after checks pass.
-On a phone running Android 8+, install the debug APK, grant **Display over other apps**,
-then enable the floating icon from the app.
+Actions workflow: https://github.com/nexvary/Floating-Note/actions/workflows/android.yml
 
-## Privacy and platform limitations
+## Privacy
 
-The clipboard is controlled by Android. Copy is local to a note; paste reads the system
-clipboard only when the user presses Paste. Android can reject clipboard reads depending
-on the currently focused window and OS version. This application cannot inject paste
-into an arbitrary third-party app, and does not use accessibility privileges.
+Notes stay in an on-device SQLite database. An exported JSON backup is PLAINTEXT;
+only save it to a trusted location. Import merges rather than overwrites, and repeated
+imports may duplicate notes. There is no server, networking permission or telemetry.
 
-The foreground service is started from an activity as a direct user action. Android 15+
-may refuse service launches initiated from the background. Persisting overlays and
-background operation need validation on physical devices and OEM variants. The
-special-use foreground-service declaration may require review for Google Play distribution.
+Reminders are not exact to the minute because the system may defer inexact alarms.
+See docs/IMPLEMENTATION.md for the validation checklist and open limitations.
 
-This repository contains original code, not extracted code from the reference APK.
-
-## Documentation
-
-See [requirements & implementation tracker](docs/IMPLEMENTATION.md).
+The reference APK was examined for product comparisons; the code here is original.

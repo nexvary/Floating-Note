@@ -1,42 +1,46 @@
 # Implementation tracker — NEXVARY Floating Note
 
-## Requirements
+## 0.2.0 — development branch
 
-| Requirement | Implementation | Verification |
+| Requirement | Code | Validation |
 |---|---|---|
-| Circular floating icon | Native overlay ImageView, gradient background, dock to screen edges | Device test pending |
-| Close action in floating menu | Service stop, cleans up overlays and foreground notification | Device test pending |
-| Copy action in floating menu | Copy current/last note into Android ClipboardManager | Device test pending |
-| Paste action in floating menu | Explicit clipboard read and insertion at caret in note | Device test pending |
-| Open / new note in floating menu | Open most recent or new note | Device test pending |
-| Floating note editor | Movable overlay EditText, collapse to bubble | Device test pending |
-| Multiple notes | Local SQLite, create/list/update/delete | UI device test pending |
-| Autosave | Debounced save after text edits and save on collapse | Device test pending |
-| Arabic / RTL | Android localized strings and first-strong text direction | Device test pending |
-| Accessibility | Labeled toolbar ImageViews, clickable buttons | TalkBack test pending |
-| No excessive privileges | No AccessibilityService or internet permission | Manifest inspection pending |
-| CI | GitHub Actions build, lint, unit tests, artifact | Verify CI run |
-| Testable title / preview | Five JUnit unit tests | Verify CI run |
+| Circular bubble, docking and actions | implemented | physical device test pending |
+| Copy, paste, create, open and stop | implemented | physical device test pending |
+| Movable editor and collapse | implemented | physical device test pending |
+| Resize editor; remember width and height | implemented | physical device test pending |
+| Multiple notes and autosave | implemented | physical device test pending |
+| Five themes and pinned note ordering | implemented | physical device test pending |
+| Note text search | implemented | unit tests and device test pending |
+| Reminder schedule, update, cancel and reboot restore | implemented | Doze/notification device test pending |
+| SAF JSON backup export/import; transactional merge | implemented | JVM tests; device SAF test pending |
+| SQLite schema migration from v1 to v2 | implemented | device upgrade test pending |
+| Arabic RTL strings and first-strong editing | implemented | device localization test pending |
+| CI unit tests, Android lint, APK artifact | implemented | see actual Actions runs |
 
-## Next increments (not claimed done)
+### Important constraints
 
-- Text selection and richer formatting within the note.
-- Color themes per note, resizing handles, pinning and locking.
-- Reminder notifications and background scheduler.
-- Optional encrypted export/import and recovery.
-- Full TalkBack, keyboard, RTL, Android 8–16 and OEM battery-management testing.
-- Device screen recordings and real screenshots.
-- Production signing and store distribution.
+- JSON backups are plaintext, not encrypted. Export only to trusted storage.
+- Import MERGES; it never deletes current notes. Reimport duplicates notes.
+- Reminders are INEXACT. Android may delay them. Android 13+ requires notification permission.
+- Pin denotes top of the list, not a locked editor window.
+- Copy/paste operate on note content and the Android clipboard, not other apps' input fields.
+- Android 8–16, OEM background restrictions, landscape and accessibility still need device verification.
 
-## Manual acceptance tests
+## Future increments
 
-1. Grant/deny overlay access; app behaves safely in both cases.
-2. Start bubble; drag across edges; dock and reopen menu.
-3. Press each of the five quick actions and verify its effect.
-4. Create two notes, switch notes, type and wait, kill/reopen application; text persists.
-5. Paste with populated/empty clipboard; read failures show a graceful message.
-6. Minimize and reopen while using a different app, in portrait and landscape.
-7. Stop the service; overlay disappears and ongoing notification is removed.
-8. Toggle Arabic and English device languages; verify RTL text and button hit targets.
-9. Remove overlay permission while service is active; ensure no crash.
-10. Test accessibility labels, screen reader navigation and low-memory recovery.
+1. Android emulator or physical-device UI acceptance tests and screenshots.
+2. Test upgrade v1 to v2 and backup rollback, notification permission, RTL gestures and low-memory recovery.
+3. Optional encrypted backup, rich-text note editor and simultaneously visible multiple editors.
+4. Optional recurring reminders and import deduplication.
+5. Production signing, store requirements and app icon design refinements.
+
+## Hardware acceptance checklist
+
+- Grant/deny overlay; test bubble launch, drag, docking and every quick action.
+- Test copy/paste when different apps are in foreground; verify denied clipboard response.
+- Create multiple notes, resize editor, rotate screen, minimize, reopen and verify autosave.
+- Change colors/pinning; search by Arabic/English, delete and reopen.
+- Import/export JSON and corrupt file; verify no partial changes.
+- Upgrade real v1 database; preserve data and IDs.
+- Reminders: schedule, change, cancel, reboot, battery saver and denied notifications.
+- Android 8, 13 and 15+; narrow viewport, RTL, large font and TalkBack focus.
