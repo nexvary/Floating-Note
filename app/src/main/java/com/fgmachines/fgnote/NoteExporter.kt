@@ -20,7 +20,7 @@ object NoteExporter {
     private const val PAD = 42
 
     private fun layout(context: Context, note: Note, width: Int, textSize: Float): StaticLayout {
-        val styled = RichNotes.deserialize(context, note.richHtml, note.body)
+        val styled = RichNotes.deserialize(context, note.richHtml, note.body, width)
         val content = SpannableStringBuilder(styled)
         val paint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
             color = Color.rgb(37, 49, 51)
@@ -54,12 +54,16 @@ object NoteExporter {
         destination.flush()
     }
 
-    fun html(note: Note, destination: OutputStream) {
+    fun html(context: Context, note: Note, destination: OutputStream) {
         val escaped = android.text.TextUtils.htmlEncode(note.title)
-        val body = if (note.richHtml.isNotBlank()) note.richHtml else
-            android.text.TextUtils.htmlEncode(note.body).replace("\n", "<br/>")
+        val body = if (note.richHtml.isNotBlank()) {
+            RichNotes.serialize(RichNotes.deserialize(context, note.richHtml, note.body))
+        } else android.text.TextUtils.htmlEncode(note.body).replace("\n", "<br/>")
+        val ink = if (note.titleInk == 0) "#0F6967"
+            else String.format("#%06X", note.titleInk and 0xFFFFFF)
         val output = "<!doctype html><html lang=\"ar\"><head><meta charset=\"utf-8\"/>" +
-            "<title>" + escaped + "</title></head><body><h1>" + escaped +
+            "<title>" + escaped + "</title></head><body><h1 style=\"color:" + ink +
+            ";font-size:" + note.titleSizeSp.coerceIn(14, 36) + "px\">" + escaped +
             "</h1><article>" + body + "</article></body></html>"
         destination.write(output.toByteArray(Charsets.UTF_8))
         destination.flush()

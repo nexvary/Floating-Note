@@ -579,7 +579,7 @@ class MainActivity : Activity() {
                             REQUEST_EXPORT_PDF -> NoteExporter.pdf(applicationContext, note, output)
                             REQUEST_EXPORT_PNG -> NoteExporter.png(applicationContext, note, output)
                             REQUEST_EXPORT_TXT -> NoteExporter.txt(note, output)
-                            REQUEST_EXPORT_HTML -> NoteExporter.html(note, output)
+                            REQUEST_EXPORT_HTML -> NoteExporter.html(applicationContext, note, output)
                         }
                     } ?: error("Unable to write export")
                     runOnUiThread {

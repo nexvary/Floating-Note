@@ -31,10 +31,12 @@ object RichNotes {
     private const val IMAGE_PREFIX = "data:image/jpeg;base64,"
     private const val MAX_IMAGE_BYTES = 1_500_000
 
-    fun deserialize(context: Context, html: String, plain: String): SpannableStringBuilder {
+    fun deserialize(context: Context, html: String, plain: String,
+        maxImageWidth: Int = (context.resources.displayMetrics.density * 245).toInt()
+    ): SpannableStringBuilder {
         if (html.isBlank()) return SpannableStringBuilder(plain)
         val parsed = Html.fromHtml(html, Html.FROM_HTML_MODE_COMPACT,
-            Html.ImageGetter { src -> decodeDrawable(context, src) }, null)
+            Html.ImageGetter { src -> decodeDrawable(context, src, maxImageWidth) }, null)
         return SpannableStringBuilder(parsed)
     }
 
@@ -86,14 +88,13 @@ object RichNotes {
             where, where + 1, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
     }
 
-    private fun decodeDrawable(context: Context, src: String?): Drawable? {
+    private fun decodeDrawable(context: Context, src: String?, maxWidth: Int): Drawable? {
         if (src == null || !src.startsWith(IMAGE_PREFIX) || src.length > 2_200_000) return null
         return try {
             val bytes = Base64.getDecoder().decode(src.removePrefix(IMAGE_PREFIX))
             val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size) ?: return null
             BitmapDrawable(context.resources, bitmap).apply {
-                val scale = (context.resources.displayMetrics.density * 245 /
-                    bitmap.width).coerceAtMost(1f)
+                val scale = (maxWidth.toFloat() / bitmap.width).coerceAtMost(1f)
                 setBounds(0, 0, (bitmap.width * scale).toInt().coerceAtLeast(1),
                     (bitmap.height * scale).toInt().coerceAtLeast(1))
             }
