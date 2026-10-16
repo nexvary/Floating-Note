@@ -344,10 +344,10 @@ class FloatingNoteService : Service() {
             setSingleLine(true)
             filters = arrayOf(InputFilter.LengthFilter(250))
             setText(note.customTitle)
-            setTextColor(Palette.WHITE)
+            setTextColor(if (note.titleInk == 0) Palette.WHITE else note.titleInk)
             setHintTextColor(Palette.MUTED)
             setHint(R.string.note_title_hint)
-            textSize = 18f
+            textSize = note.titleSizeSp.toFloat()
             setPadding(dp(12), dp(8), dp(12), dp(8))
             background = roundShape(Palette.PANEL_LIGHT, 12)
             textDirection = View.TEXT_DIRECTION_FIRST_STRONG
@@ -446,6 +446,27 @@ class FloatingNoteService : Service() {
         }
         command("↶", getString(R.string.undo_action)) { historyMove(true) }
         command("↷", getString(R.string.redo_action)) { historyMove(false) }
+        var titleSize = note.titleSizeSp
+        var titleInk = note.titleInk
+        command("A+", getString(R.string.title_bigger)) {
+            titleSize = (titleSize + 2).coerceAtMost(36)
+            titleInput.textSize = titleSize.toFloat()
+            notes.setTitleStyle(noteId, titleSize, titleInk)
+        }
+        command("A−", getString(R.string.title_smaller)) {
+            titleSize = (titleSize - 2).coerceAtLeast(14)
+            titleInput.textSize = titleSize.toFloat()
+            notes.setTitleStyle(noteId, titleSize, titleInk)
+        }
+        val titleInks = intArrayOf(Palette.WHITE, 0xFF007E78.toInt(),
+            0xFFBC3D54.toInt(), 0xFF8161CE.toInt(), 0xFFB26B00.toInt())
+        command("T●", getString(R.string.title_colour)) {
+            val selected = if (titleInk == 0) Palette.WHITE else titleInk
+            val index = titleInks.indexOf(selected)
+            titleInk = titleInks[(index + 1).coerceAtLeast(0) % titleInks.size]
+            titleInput.setTextColor(titleInk)
+            notes.setTitleStyle(noteId, titleSize, titleInk)
+        }
         command("H₁", getString(R.string.heading_format)) {
             applySpanEdit { ed, from, to ->
                 RichNotes.heading(ed, from, to, 0xFF007E78.toInt())

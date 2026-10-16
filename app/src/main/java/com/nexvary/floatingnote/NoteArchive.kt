@@ -28,6 +28,8 @@ object NoteArchive {
                 .put("body", n.body)
                 .put("title", n.customTitle)
                 .put("richHtml", n.richHtml)
+                .put("titleSize", n.titleSizeSp)
+                .put("titleInk", n.titleInk)
                 .put("updatedAt", n.updatedAt)
                 .put("color", n.color)
                 .put("pinned", n.pinned)
@@ -62,6 +64,8 @@ object NoteArchive {
             val body = item.getString("body")
             val title = item.optString("title", "")
             val html = item.optString("richHtml", "")
+            val titleSize = item.optInt("titleSize", 20).coerceIn(14, 36)
+            val titleInk = item.optInt("titleInk", 0)
             require(html.length <= MAX_BYTES) { "Rich note too large" }
             require(title.length <= 250) { "Title too long" }
             require(body.length <= MAX_BODY) { "Note too large" }
@@ -70,7 +74,7 @@ object NoteArchive {
             val color = item.getInt("color")
             require(color in NoteColors.backgrounds.indices) { "Invalid color" }
             val reminder = if (item.isNull("reminderAt")) null else item.getLong("reminderAt")
-            result.add(Note(-1, body, updated, color, item.getBoolean("pinned"), reminder, title, html))
+            result.add(Note(-1, body, updated, color, item.getBoolean("pinned"), reminder, title, html, titleSize, titleInk))
         }
         return result
     }

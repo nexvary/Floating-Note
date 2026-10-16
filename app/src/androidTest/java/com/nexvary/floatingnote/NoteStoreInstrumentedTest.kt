@@ -210,6 +210,24 @@ class NoteStoreInstrumentedTest {
         }
     }
 
+    @Test
+    fun titleSizeAndInkPersistAndRestoreFromJson() {
+        withStore { store ->
+            val id = store.create("Body", 2, "Headline")
+            val ink = 0xFFDA4277.toInt()
+            assertTrue(store.setTitleStyle(id, 30, ink))
+            val saved = store.get(id)!!
+            assertEquals(30, saved.titleSizeSp)
+            assertEquals(ink, saved.titleInk)
+            val output = java.io.ByteArrayOutputStream()
+            NoteArchive.export(listOf(saved), output)
+            val recovered = NoteArchive.read(
+                java.io.ByteArrayInputStream(output.toByteArray())).single()
+            assertEquals(30, recovered.titleSizeSp)
+            assertEquals(ink, recovered.titleInk)
+        }
+    }
+
     /** SQLiteOpenHelper is not AutoCloseable on all supported Android releases. */
     private inline fun <T> withStore(block: (NoteStore) -> T): T {
         val store = NoteStore(context)

@@ -33,13 +33,15 @@ object NoteExporter {
             .build()
     }
 
-    private fun drawHeader(canvas: Canvas, title: String, width: Int, pad: Int) {
+    private fun drawHeader(canvas: Canvas, note: Note, width: Int, pad: Int) {
         canvas.drawColor(Color.rgb(255, 253, 245))
         val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = Color.rgb(15, 105, 103)
-            textSize = 23f
+            color = if (note.titleInk == 0) Color.rgb(15, 105, 103) else note.titleInk
+            textSize = note.titleSizeSp.coerceIn(14, 36).toFloat() *
+                (if (width > 700) 1.4f else 1f)
             typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
         }
+        val title = note.title
         val shown = if (title.length > 100) title.take(99) + "…" else title
         canvas.drawText(shown, pad.toFloat(), 79f, paint)
         paint.color = Color.rgb(239, 191, 99)
@@ -74,7 +76,7 @@ object NoteExporter {
                 val info = PdfDocument.PageInfo.Builder(PAGE_W, PAGE_H, pageIndex + 1).create()
                 val page = document.startPage(info)
                 val canvas = page.canvas
-                drawHeader(canvas, note.title, PAGE_W, PAD)
+                drawHeader(canvas, note, PAGE_W, PAD)
                 canvas.save()
                 canvas.clipRect(PAD, 125, PAGE_W - PAD, PAGE_H - 30)
                 canvas.translate(PAD.toFloat(), 125f - pageIndex * available)
@@ -98,7 +100,7 @@ object NoteExporter {
             val canvas = Canvas(bmp)
             canvas.save()
             canvas.scale(1f, 1f)
-            drawHeader(canvas, note.title, width, 50)
+            drawHeader(canvas, note, width, 50)
             canvas.translate(50f, 150f)
             layout.draw(canvas)
             canvas.restore()

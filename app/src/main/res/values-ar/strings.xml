@@ -86,4 +86,7 @@
     <string name="export_html">صفحة HTML منسقة</string>
     <string name="grid_mode">شبكة الملاحظات أو القائمة</string>
     <string name="backup_tools">أدوات النسخ الاحتياطي والاستعادة</string>
+    <string name="title_bigger">تكبير عنوان الملاحظة</string>
+    <string name="title_smaller">تصغير عنوان الملاحظة</string>
+    <string name="title_colour">تغيير لون عنوان الملاحظة</string>
 </resources>

@@ -86,4 +86,7 @@
     <string name="export_html">Rich HTML</string>
     <string name="grid_mode">Grid or list view</string>
     <string name="backup_tools">Backup &amp; restore tools</string>
+    <string name="title_bigger">Increase title size</string>
+    <string name="title_smaller">Decrease title size</string>
+    <string name="title_colour">Change title colour</string>
 </resources>
