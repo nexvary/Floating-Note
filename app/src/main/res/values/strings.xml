@@ -80,4 +80,6 @@
     <string name="note_saved">Note saved</string>
     <string name="fmt_toolbar">Text formatting tools</string>
     <string name="export_failed">Export failed</string>
+    <string name="undo_delete">Undo deleted note</string>
+    <string name="note_restored">Note restored</string>
 </resources>

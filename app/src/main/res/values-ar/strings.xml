@@ -80,4 +80,6 @@
     <string name="note_saved">تم حفظ الملاحظة</string>
     <string name="fmt_toolbar">أدوات تنسيق النص</string>
     <string name="export_failed">تعذّر التصدير</string>
+    <string name="undo_delete">التراجع عن حذف الملاحظة</string>
+    <string name="note_restored">تم استعادة الملاحظة</string>
 </resources>

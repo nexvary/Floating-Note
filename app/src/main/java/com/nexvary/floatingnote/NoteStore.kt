@@ -40,13 +40,13 @@ object NoteColors {
 
 /** Versioned migrations preserve all existing user notes, including 0.1.0 databases. */
 class NoteStore(context: Context) :
-    SQLiteOpenHelper(context.applicationContext, "floating_notes.db", null, 4) {
+    SQLiteOpenHelper(context.applicationContext, "floating_notes.db", null, 5) {
     override fun onCreate(db: SQLiteDatabase) {
         db.execSQL(
             "CREATE TABLE notes (id INTEGER PRIMARY KEY AUTOINCREMENT, " +
                 "body TEXT NOT NULL, updated_at INTEGER NOT NULL, " +
                 "color INTEGER NOT NULL DEFAULT 0, pinned INTEGER NOT NULL DEFAULT 0, " +
-                "reminder_at INTEGER, title TEXT NOT NULL DEFAULT '', rich_html TEXT NOT NULL DEFAULT '')"
+                "reminder_at INTEGER, title TEXT NOT NULL DEFAULT '', rich_html TEXT NOT NULL DEFAULT '', deleted_at INTEGER)"
         )
         db.execSQL("CREATE INDEX notes_updated_idx ON notes(updated_at DESC)")
     }
@@ -62,6 +62,9 @@ class NoteStore(context: Context) :
         }
         if (oldVersion < 4) {
             db.execSQL("ALTER TABLE notes ADD COLUMN rich_html TEXT NOT NULL DEFAULT ''")
+        }
+        if (oldVersion < 5) {
+            db.execSQL("ALTER TABLE notes ADD COLUMN deleted_at INTEGER")
         }
     }
 
@@ -117,8 +120,26 @@ class NoteStore(context: Context) :
     private fun change(id: Long, values: ContentValues): Boolean =
         writableDatabase.update("notes", values, "id = ?", arrayOf(id.toString())) > 0
 
+    /** Recoverable soft deletion, including after process restart. */
     fun delete(id: Long): Boolean =
-        writableDatabase.delete("notes", "id = ?", arrayOf(id.toString())) > 0
+        writableDatabase.update("notes",
+            ContentValues().apply { put("deleted_at", System.currentTimeMillis()) },
+            "id = ? AND deleted_at IS NULL", arrayOf(id.toString())) > 0
+
+    fun lastDeleted(): Note? {
+        readableDatabase.query("notes", columns, "deleted_at IS NOT NULL", null, null,
+            null, "deleted_at DESC, id DESC", "1").use { cursor ->
+            return if (cursor.moveToFirst()) row(cursor) else null
+        }
+    }
+
+    fun undoLastDelete(): Note? {
+        val last = lastDeleted() ?: return null
+        val count = writableDatabase.update("notes",
+            ContentValues().apply { putNull("deleted_at") },
+            "id = ? AND deleted_at IS NOT NULL", arrayOf(last.id.toString()))
+        return if (count == 1) get(last.id) else null
+    }
 
     private val columns = arrayOf("id", "body", "updated_at", "color", "pinned", "reminder_at", "title", "rich_html")
 
@@ -129,7 +150,7 @@ class NoteStore(context: Context) :
 
     fun get(id: Long): Note? {
         readableDatabase.query(
-            "notes", columns, "id = ?", arrayOf(id.toString()), null, null, null, "1"
+            "notes", columns, "id = ? AND deleted_at IS NULL", arrayOf(id.toString()), null, null, null, "1"
         ).use { c ->
             return if (c.moveToFirst()) row(c) else null
         }
@@ -138,7 +159,7 @@ class NoteStore(context: Context) :
     fun all(): List<Note> {
         val result = mutableListOf<Note>()
         readableDatabase.query(
-            "notes", columns, null, null, null, null,
+            "notes", columns, "deleted_at IS NULL", null, null, null,
             "pinned DESC, updated_at DESC, id DESC"
         ).use { c -> while (c.moveToNext()) result.add(row(c)) }
         return result

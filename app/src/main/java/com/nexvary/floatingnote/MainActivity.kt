@@ -262,6 +262,17 @@ class MainActivity : Activity() {
         }
         section.addView(label(getString(R.string.my_notes), 21f, Palette.WHITE, true),
             LinearLayout.LayoutParams(0, dp(46), 1f))
+        if (database.lastDeleted() != null) {
+            section.addView(icon(R.drawable.ic_undo, getString(R.string.undo_delete),
+                Palette.PANEL_LIGHT, 46) {
+                val restored = database.undoLastDelete()
+                if (restored != null) {
+                    ReminderScheduler.schedule(this, restored)
+                    Toast.makeText(this, R.string.note_restored, Toast.LENGTH_SHORT).show()
+                }
+                render()
+            })
+        }
         section.addView(icon(R.drawable.ic_add, getString(R.string.new_note),
             Palette.PANEL_LIGHT, 46) {
             val newId = database.create()
@@ -364,7 +375,7 @@ class MainActivity : Activity() {
                     ReminderScheduler.cancel(this, note.id)
                     if (isRunning()) start(FloatingNoteService.ACTION_CLOSE_EDITOR, note.id)
                     database.delete(note.id)
-                    displayNotes()
+                    render()
                 }.show()
         })
         row.addView(footer)

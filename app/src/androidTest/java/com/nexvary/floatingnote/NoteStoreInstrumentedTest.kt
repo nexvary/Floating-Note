@@ -191,6 +191,25 @@ class NoteStoreInstrumentedTest {
         }
     }
 
+    @Test
+    fun deletedNoteCanBeUndoneWithAllItsContentAndStyle() {
+        withStore { store ->
+            val id = store.create("Original body", 2, "Original title")
+            assertTrue(store.updateRich(id, "Original title", "Original body",
+                "<p><span style='color:#008877'>Original body</span></p>"))
+            assertTrue(store.delete(id))
+            assertNull(store.get(id))
+            assertTrue(store.all().isEmpty())
+            assertEquals(id, store.lastDeleted()?.id)
+            val restored = store.undoLastDelete()!!
+            assertEquals(id, restored.id)
+            assertEquals("Original title", restored.title)
+            assertTrue(restored.richHtml.contains("#008877"))
+            assertNotNull(store.get(id))
+            assertNull(store.lastDeleted())
+        }
+    }
+
     /** SQLiteOpenHelper is not AutoCloseable on all supported Android releases. */
     private inline fun <T> withStore(block: (NoteStore) -> T): T {
         val store = NoteStore(context)
