@@ -1,8 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="ink">#0B1215</color>
-    <color name="panel">#162327</color>
-    <color name="mint">#65F0B1</color>
-    <color name="muted">#99ADAF</color>
+    <color name="ink">#0B302F</color>
+    <color name="panel">#FFFFFF</color>
+    <color name="paper">#F4F7F2</color>
+    <color name="mint">#067F74</color>
+    <color name="muted">#6E8583</color>
     <color name="white">#FFFFFF</color>
 </resources>

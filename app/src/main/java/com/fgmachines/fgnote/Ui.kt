@@ -42,6 +42,7 @@ internal fun Context.icon(
     click: () -> Unit
 ): ImageView = ImageView(this).apply {
     setImageResource(drawable)
+    imageTintList = android.content.res.ColorStateList.valueOf(Palette.MINT)
     scaleType = ImageView.ScaleType.FIT_CENTER
     val p = dp(11)
     setPadding(p, p, p, p)
