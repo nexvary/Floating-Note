@@ -1,4 +1,4 @@
-package com.nexvary.floatingnote
+package com.fgmachines.fgnote
 
 import android.content.Context
 import android.database.sqlite.SQLiteDatabase

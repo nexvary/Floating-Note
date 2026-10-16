@@ -1,4 +1,4 @@
-package com.nexvary.floatingnote
+package com.fgmachines.fgnote
 
 import android.app.AppOpsManager
 import android.app.Notification
@@ -41,10 +41,11 @@ import kotlin.math.min
  */
 class FloatingNoteService : Service() {
     companion object {
-        const val ACTION_START = "com.nexvary.floatingnote.START"
-        const val ACTION_OPEN = "com.nexvary.floatingnote.OPEN"
-        const val ACTION_NEW = "com.nexvary.floatingnote.NEW"
-        const val ACTION_CLOSE_EDITOR = "com.nexvary.floatingnote.CLOSE_EDITOR"
+        const val ACTION_START = "com.fgmachines.fgnote.START"
+        const val ACTION_OPEN = "com.fgmachines.fgnote.OPEN"
+        const val ACTION_NEW = "com.fgmachines.fgnote.NEW"
+        const val ACTION_CLOSE_EDITOR = "com.fgmachines.fgnote.CLOSE_EDITOR"
+        const val ACTION_INSERT_IMAGE = "com.fgmachines.fgnote.INSERT_IMAGE"
         const val EXTRA_NOTE_ID = "note_id"
         private const val CHANNEL = "floating_notes"
         private const val NOTIFICATION_ID = 1001
@@ -118,6 +119,12 @@ class FloatingNoteService : Service() {
             .edit().putBoolean("active", true).apply()
 
         when (intent?.action) {
+            ACTION_INSERT_IMAGE -> {
+                val id = intent.getLongExtra(EXTRA_NOTE_ID, -1L)
+                intent.getStringExtra("image_uri")?.let { uri ->
+                    if (id >= 0) insertNoteImage(id, android.net.Uri.parse(uri))
+                }
+            }
             ACTION_NEW -> openEditor(notes.create())
             ACTION_OPEN -> {
                 val id = intent.getLongExtra(EXTRA_NOTE_ID, -1L)
@@ -350,7 +357,7 @@ class FloatingNoteService : Service() {
         card.addSpace(this, 9)
 
         val input = EditText(this).apply {
-            setText(note.body)
+            setText(RichNotes.deserialize(this@FloatingNoteService, note.richHtml, note.body))
             setTextColor(Palette.WHITE)
             setHintTextColor(Palette.MUTED)
             hint = getString(R.string.placeholder)
@@ -365,65 +372,138 @@ class FloatingNoteService : Service() {
             isSingleLine = false
             minLines = 8
         }
-        card.addView(input, LinearLayout.LayoutParams(-1, 0, 1f))
-        card.addSpace(this, 7)
-        val footer = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.END or Gravity.CENTER_VERTICAL
-        }
-        val resize = icon(R.drawable.ic_resize, getString(R.string.resize_note),
-            Palette.PANEL_LIGHT, 36) {}
-        footer.addView(icon(R.drawable.ic_checklist,
-            getString(R.string.toggle_checklist), Palette.PANEL_LIGHT, 36) {
-            val selection = input.selectionStart.coerceAtLeast(0)
-            val editable = input.text
-            var start = selection
-            while (start > 0 && editable[start - 1] != '\n') start--
-            var end = selection
-            while (end < editable.length && editable[end] != '\n') end++
-            val updated = NoteFormatting.toggleTask(
-                editable.subSequence(start, end).toString())
-            editable.replace(start, end, updated)
-            input.setSelection((start + updated.length).coerceIn(0, editable.length))
-        })
-        footer.addView(icon(R.drawable.ic_bold,
-            getString(R.string.mark_bold), Palette.PANEL_LIGHT, 36) {
-            val editable = input.text
-            val from = input.selectionStart.coerceAtLeast(0)
-            val to = input.selectionEnd.coerceAtLeast(from)
-            val selected = editable.subSequence(from, to).toString()
-            val updated = NoteFormatting.bold(selected)
-            editable.replace(from, to, updated)
-            input.setSelection((from + updated.length / 2).coerceIn(0, editable.length))
-        })
-        footer.addView(resize)
-        card.addView(footer)
+        val history = RichHistory()
+        var restoring = false
         fun updateHeading() {
             heading.text = titleInput.text.toString().trim()
                 .ifBlank { NoteText.title(input.text.toString()) }
                 .ifBlank { getString(R.string.untitled) }
         }
-
         fun scheduleAutosave() {
             updateHeading()
             pendingSaves.remove(noteId)?.let(handler::removeCallbacks)
             val save = Runnable {
-                notes.updateNote(noteId, titleInput.text.toString(), input.text.toString())
+                notes.updateRich(noteId, titleInput.text.toString(),
+                    RichNotes.plainText(input.text), RichNotes.serialize(input.text))
                 pendingSaves.remove(noteId)
             }
             pendingSaves[noteId] = save
             handler.postDelayed(save, 350)
         }
         val watcher = object : TextWatcher {
-            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
-            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
-                scheduleAutosave()
+            override fun beforeTextChanged(text: CharSequence?, start: Int, count: Int, after: Int) {
+                if (!restoring) history.record(titleInput.text.toString(), input.text)
+            }
+            override fun onTextChanged(text: CharSequence?, start: Int, before: Int, count: Int) {
+                if (!restoring) scheduleAutosave()
             }
             override fun afterTextChanged(s: Editable?) = Unit
         }
         updateHeading()
         input.addTextChangedListener(watcher)
         titleInput.addTextChangedListener(watcher)
+        fun historyMove(undo: Boolean) {
+            val state = if (undo) history.undo(titleInput.text.toString(), input.text)
+                        else history.redo(titleInput.text.toString(), input.text)
+            if (state != null) {
+                restoring = true
+                titleInput.setText(state.title)
+                input.setText(state.body)
+                input.setSelection(input.length())
+                restoring = false
+                scheduleAutosave()
+            }
+        }
+        fun applySpanEdit(op: (Editable, Int, Int) -> Unit) {
+            val editable = input.text
+            history.record(titleInput.text.toString(), editable)
+            val (first, last) = RichNotes.selectionOrWord(editable,
+                input.selectionStart.coerceAtLeast(0), input.selectionEnd.coerceAtLeast(0))
+            op(editable, first, last)
+            input.invalidate()
+            scheduleAutosave()
+        }
+        card.addView(input, LinearLayout.LayoutParams(-1, 0, 1f))
+        card.addSpace(this, 7)
+        val toolbar = android.widget.HorizontalScrollView(this).apply {
+            isHorizontalScrollBarEnabled = false
+            contentDescription = getString(R.string.fmt_toolbar)
+        }
+        val tools = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+        fun command(text: String, description: String, bg: Int = Palette.PANEL_LIGHT,
+            operation: () -> Unit) {
+            tools.addView(label(text, 17f, Palette.WHITE, true).apply {
+                gravity = Gravity.CENTER
+                contentDescription = description
+                background = roundShape(bg, 11)
+                isClickable = true
+                isFocusable = true
+                setOnClickListener { operation() }
+            }, LinearLayout.LayoutParams(dp(45), dp(42)).apply { marginEnd = dp(5) })
+        }
+        command("↶", getString(R.string.undo_action)) { historyMove(true) }
+        command("↷", getString(R.string.redo_action)) { historyMove(false) }
+        command("H₁", getString(R.string.heading_format)) {
+            applySpanEdit { ed, from, to ->
+                RichNotes.heading(ed, from, to, 0xFF007E78.toInt())
+            }
+        }
+        val inkColours = intArrayOf(
+            0xFF12CC91.toInt(), 0xFFE75A53.toInt(), 0xFFF2B83D.toInt(),
+            0xFF709FF1.toInt(), 0xFFD16CDD.toInt(), 0xFFFFFFFF.toInt()
+        )
+        inkColours.forEach { shade ->
+            command("●", getString(R.string.text_colour), shade) {
+                applySpanEdit { ed, from, to -> RichNotes.colour(ed, from, to, shade) }
+            }
+        }
+        command("W−", getString(R.string.remove_word)) {
+            val ed = input.text
+            history.record(titleInput.text.toString(), ed)
+            val cursor = input.selectionStart.coerceAtLeast(0)
+            input.setSelection(RichNotes.deletePreviousWord(ed, cursor))
+        }
+        command("⌫", getString(R.string.remove_letter)) {
+            val ed = input.text
+            history.record(titleInput.text.toString(), ed)
+            val cursor = input.selectionStart.coerceAtLeast(0)
+            input.setSelection(RichNotes.deletePreviousCharacter(ed, cursor))
+        }
+        command("▧", getString(R.string.insert_photo)) {
+            startActivity(Intent(this, MainActivity::class.java)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+                .putExtra(MainActivity.EXTRA_PICK_IMAGE_NOTE, noteId))
+        }
+        val resize = icon(R.drawable.ic_resize, getString(R.string.resize_note),
+            Palette.PANEL_LIGHT, 38) {}
+        tools.addView(icon(R.drawable.ic_checklist, getString(R.string.toggle_checklist),
+            Palette.PANEL_LIGHT, 38) {
+            val editable = input.text
+            history.record(titleInput.text.toString(), editable)
+            val selection = input.selectionStart.coerceAtLeast(0)
+            var first = selection
+            while (first > 0 && editable[first - 1] != '\n') first--
+            var last = selection
+            while (last < editable.length && editable[last] != '\n') last++
+            val updated = NoteFormatting.toggleTask(editable.subSequence(first, last).toString())
+            editable.replace(first, last, updated)
+            input.setSelection((first + updated.length).coerceIn(0, editable.length))
+        })
+        tools.addView(icon(R.drawable.ic_bold, getString(R.string.mark_bold),
+            Palette.PANEL_LIGHT, 38) {
+            val ed = input.text
+            history.record(titleInput.text.toString(), ed)
+            val start = input.selectionStart.coerceAtLeast(0)
+            val end = input.selectionEnd.coerceAtLeast(start)
+            ed.replace(start, end,
+                NoteFormatting.bold(ed.subSequence(start, end).toString()))
+        })
+        tools.addView(resize)
+        toolbar.addView(tools)
+        card.addView(toolbar, LinearLayout.LayoutParams(-1, dp(48)))
 
         val sizePrefs = getSharedPreferences("editor_size", MODE_PRIVATE)
         val maxWidth = max(dp(220), screenWidth() - dp(16))
@@ -512,10 +592,27 @@ class FloatingNoteService : Service() {
         }
     }
 
+    private fun insertNoteImage(noteId: Long, uri: android.net.Uri) {
+        if (editors[noteId] == null) openEditor(noteId)
+        val editor = editors[noteId] ?: return
+        try {
+            val (source, drawable) = RichNotes.imageFromUri(this, uri)
+            val pos = editor.input.selectionStart.coerceAtLeast(0)
+            RichNotes.insertImage(editor.input.text, pos, source, drawable)
+            editor.input.setSelection((pos + 1).coerceAtMost(editor.input.length()))
+            notes.updateRich(noteId, editor.titleInput.text.toString(),
+                RichNotes.plainText(editor.input.text), RichNotes.serialize(editor.input.text))
+        } catch (error: Exception) {
+            Log.w("FGNote", "Inline image insertion failed", error)
+            toast(R.string.image_too_large)
+        }
+    }
+
     private fun closeEditor(noteId: Long) {
         pendingSaves.remove(noteId)?.let(handler::removeCallbacks)
         val session = editors.remove(noteId) ?: return
-        notes.updateNote(noteId, session.titleInput.text.toString(), session.input.text.toString())
+        notes.updateRich(noteId, session.titleInput.text.toString(),
+            RichNotes.plainText(session.input.text), RichNotes.serialize(session.input.text))
         removeWindow(session.view)
         if (activeNoteId == noteId) activeNoteId = editors.keys.lastOrNull() ?: -1L
     }

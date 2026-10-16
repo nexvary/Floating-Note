@@ -1,4 +1,4 @@
-package com.nexvary.floatingnote
+package com.fgmachines.fgnote
 
 import android.content.Context
 import android.graphics.Color
@@ -13,12 +13,12 @@ import android.widget.TextView
 import kotlin.math.roundToInt
 
 internal object Palette {
-    const val BACK = 0xFF0B1215.toInt()
-    const val PANEL = 0xFF162327.toInt()
-    const val PANEL_LIGHT = 0xFF213136.toInt()
-    const val MINT = 0xFF65F0B1.toInt()
-    const val WHITE = 0xFFF3FAF6.toInt()
-    const val MUTED = 0xFF99ADAF.toInt()
+    const val BACK = 0xFFF4F7F2.toInt()
+    const val PANEL = 0xFFFFFFFF.toInt()
+    const val PANEL_LIGHT = 0xFFE2F1E8.toInt()
+    const val MINT = 0xFF067F74.toInt()
+    const val WHITE = 0xFF193338.toInt()
+    const val MUTED = 0xFF6E8583.toInt()
     const val RED = 0xFFFF9B9B.toInt()
 }
 

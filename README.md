@@ -1,45 +1,28 @@
-# NEXVARY Floating Note
+# FG Note — by FG Machines
 
-Offline-first Android floating notes, optimized for Arabic and English.
+Offline-first Android sticky notes with a colourful, quick-entry library inspired by ColorNote usability principles. No proprietary source or design assets are copied.
 
-## Version 0.3.2 (development — dev/foundation)
+Development repository: nexvary/Floating-Note, branch dev/foundation. Planned final account: FGMachines; repository has not been moved yet.
 
-- A draggable circular bubble with quick actions: open, create, copy, paste, stop.
-- Up to four simultaneous floating note editors, independently autosaved and minimized.
-- Resizable editors, five color themes, saved positions, pinned notes and search.
-- Inexact reminders; exported reminders reschedule on restore when still in the future.
-- User-selected **password-encrypted backup** (AES-256-GCM with PBKDF2-HMAC-SHA256,
-  random salt and nonce, authenticated header) in .nfn format.
-- Legacy plain JSON export/import remains optional. **JSON is not encrypted**.
-- Transactional merge import now skips exact duplicate notes.
-- All data stored locally; no INTERNET or accessibility permissions.
+## Android identity
+- App label: FG Note
+- Application ID and Kotlin package: com.fgmachines.fgnote
+- Beta version: 0.4.0-beta1 (new versionCode 1 for new Android package)
+- Android 8+; local storage, Arabic and English.
 
-## Install and verification
+IMPORTANT MIGRATION: FG Note installs separately from old com.nexvary.floatingnote. Android will NOT transfer notes automatically. In the old app export an encrypted .nfn backup, save the password, then install FG Note and Restore encrypted. Keep the old application installed until you verify restoration.
 
-Use the dev/foundation [Android CI workflow](https://github.com/nexvary/Floating-Note/actions/workflows/android.yml).
-Download the debug APK artifact of a successful run. It is not a signed production release.
-Build with JDK 17, Gradle 8.13, Android SDK 36:
+## Editing
+- Separate autosaved title and body, movable bubble and up to 4 floating notes.
+- Selected-word or selected-text colouring, headings, bold, checklists and undo/redo.
+- Word-by-word and grapheme-aware character deletion.
+- Embedded pictures as compact inline JPEG within locally stored rich HTML.
+- PDF export with pages, PNG image export for shorter notes, password-encrypted and JSON archives.
+- Save-and-exit confirmation, pinned notes, reminders, search and share with installed email apps.
 
-    gradle :app:testDebugUnitTest :app:lintDebug :app:assembleDebug
+Rich-note backups include embedded pictures; a single archive is limited to 5 MiB. Long notes should use multi-page PDF rather than PNG. The current release is a beta requiring device QA.
 
-On the phone grant "Display over other apps", then use the Enable floating note control.
+## Privacy
+No internet or accessibility permissions. No email credentials or automatic Gmail/Proton sync. The ColourNote reference APK was inspected for comparison only.
 
-## Security and limits
-
-**Remember your encrypted backup password:** there is no password recovery.
-Wrong passwords or changed ciphertext are rejected before importing any notes.
-Encryption uses a passphrase derived key and authenticated AES-GCM; do not share
-passwords through GitHub. Plain JSON backups are not encrypted.
-
-Copy/paste act on note text and Android ClipboardManager; the app cannot inject
-text into another app's input field. Reminders are inexact and Android may delay them.
-Device testing is still mandatory, including focus/overlay behavior and Android 15+.
-
-See [implementation tracker](docs/IMPLEMENTATION.md) for verified/pending status.
-
-### On-device database tests
-
-Android 15 AOSP CI executes `:app:connectedDebugAndroidTest` before the overlay smoke test.
-The instrumentation suite validates a real SQLite v1-to-v2 migration, pinned note
-ordering, persistence, Arabic search, merge deduplication and invalid-ID handling.
-For local testing use an emulator and `gradle :app:connectedDebugAndroidTest`.
+See docs/RELEASE_SIGNING.md for production signing; debug builds cannot upgrade an old differently signed package.

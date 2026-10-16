@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">NEXVARY Floating Note</string>
+    <string name="app_name">FG Note</string>
     <string name="tagline">Your ideas, one tap away</string>
     <string name="overlay_title">Floating workspace</string>
     <string name="overlay_description">Keep your notes accessible over other apps.</string>
@@ -62,4 +62,22 @@
     <string name="mark_bold">Bold Markdown</string>
     <string name="note_title_hint">Title</string>
     <string name="share_note_via_email">Share via email (Gmail / Proton)</string>
+    <string name="exit_save_title">Save notes before exit?</string>
+    <string name="exit_save_message">Notes autosave as you work. Confirm to save and exit.</string>
+    <string name="save_and_exit">Save and exit</string>
+    <string name="keep_editing">Keep editing</string>
+    <string name="undo_action">Undo</string>
+    <string name="redo_action">Redo</string>
+    <string name="text_colour">Text colour</string>
+    <string name="heading_format">Heading</string>
+    <string name="remove_word">Delete word</string>
+    <string name="remove_letter">Delete character</string>
+    <string name="insert_photo">Insert image</string>
+    <string name="export_note">Export note</string>
+    <string name="export_pdf">Export PDF</string>
+    <string name="export_png">Export PNG</string>
+    <string name="image_too_large">Could not add image; try a smaller image</string>
+    <string name="note_saved">Note saved</string>
+    <string name="fmt_toolbar">Text formatting tools</string>
+    <string name="export_failed">Export failed</string>
 </resources>

@@ -12,5 +12,5 @@ dependencyResolutionManagement {
         mavenCentral()
     }
 }
-rootProject.name = "NEXVARY-Floating-Note"
+rootProject.name = "FG-Note"
 include(":app")

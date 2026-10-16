@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">NEXVARY نوتة عائمة</string>
+    <string name="app_name">FG Note</string>
     <string name="tagline">أفكارك أمامك بضغطة واحدة</string>
     <string name="overlay_title">مساحة الملاحظات العائمة</string>
     <string name="overlay_description">احتفظ بملاحظاتك فوق التطبيقات الأخرى.</string>
@@ -62,4 +62,22 @@
     <string name="mark_bold">تنسيق غامق</string>
     <string name="note_title_hint">عنوان الملاحظة</string>
     <string name="share_note_via_email">مشاركة بالبريد (Gmail / Proton)</string>
+    <string name="exit_save_title">هل تريد حفظ الملاحظات والخروج؟</string>
+    <string name="exit_save_message">يتم الحفظ تلقائيًا، ويمكنك التأكيد قبل الخروج.</string>
+    <string name="save_and_exit">حفظ وخروج</string>
+    <string name="keep_editing">متابعة التحرير</string>
+    <string name="undo_action">تراجع</string>
+    <string name="redo_action">إعادة</string>
+    <string name="text_colour">لون النص</string>
+    <string name="heading_format">عنوان كبير</string>
+    <string name="remove_word">حذف كلمة</string>
+    <string name="remove_letter">حذف حرف</string>
+    <string name="insert_photo">إضافة صورة</string>
+    <string name="export_note">تصدير الملاحظة</string>
+    <string name="export_pdf">تصدير PDF</string>
+    <string name="export_png">تصدير PNG</string>
+    <string name="image_too_large">تعذرت إضافة الصورة، جرّب صورة أصغر</string>
+    <string name="note_saved">تم حفظ الملاحظة</string>
+    <string name="fmt_toolbar">أدوات تنسيق النص</string>
+    <string name="export_failed">تعذّر التصدير</string>
 </resources>

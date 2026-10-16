@@ -1,4 +1,4 @@
-package com.nexvary.floatingnote
+package com.fgmachines.fgnote
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse

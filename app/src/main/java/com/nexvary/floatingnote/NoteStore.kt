@@ -1,4 +1,4 @@
-package com.nexvary.floatingnote
+package com.fgmachines.fgnote
 
 import android.content.ContentValues
 import android.content.Context
@@ -12,7 +12,8 @@ data class Note(
     val color: Int = 0,
     val pinned: Boolean = false,
     val reminderAt: Long? = null,
-    val customTitle: String = ""
+    val customTitle: String = "",
+    val richHtml: String = ""
 ) {
     val title: String get() = customTitle.ifBlank { NoteText.title(body) }
 }
@@ -27,25 +28,25 @@ object NoteText {
 
 object NoteColors {
     val backgrounds = intArrayOf(
-        0xFF162327.toInt(), 0xFF263B34.toInt(), 0xFF3D302C.toInt(),
-        0xFF2B324A.toInt(), 0xFF403148.toInt()
+        0xFFFFF4CD.toInt(), 0xFFDDF5E9.toInt(), 0xFFFFE5DB.toInt(),
+        0xFFE4EDFF.toInt(), 0xFFF5E5F6.toInt()
     )
     val accents = intArrayOf(
-        0xFF65F0B1.toInt(), 0xFF9CE4B2.toInt(), 0xFFFFC69B.toInt(),
-        0xFFAABBFF.toInt(), 0xFFE5B3F9.toInt()
+        0xFFAC7100.toInt(), 0xFF167E60.toInt(), 0xFFB64D4B.toInt(),
+        0xFF3C65BA.toInt(), 0xFF8C50AA.toInt()
     )
     fun valid(index: Int): Int = index.coerceIn(0, backgrounds.lastIndex)
 }
 
 /** Versioned migrations preserve all existing user notes, including 0.1.0 databases. */
 class NoteStore(context: Context) :
-    SQLiteOpenHelper(context.applicationContext, "floating_notes.db", null, 3) {
+    SQLiteOpenHelper(context.applicationContext, "floating_notes.db", null, 4) {
     override fun onCreate(db: SQLiteDatabase) {
         db.execSQL(
             "CREATE TABLE notes (id INTEGER PRIMARY KEY AUTOINCREMENT, " +
                 "body TEXT NOT NULL, updated_at INTEGER NOT NULL, " +
                 "color INTEGER NOT NULL DEFAULT 0, pinned INTEGER NOT NULL DEFAULT 0, " +
-                "reminder_at INTEGER, title TEXT NOT NULL DEFAULT '')"
+                "reminder_at INTEGER, title TEXT NOT NULL DEFAULT '', rich_html TEXT NOT NULL DEFAULT '')"
         )
         db.execSQL("CREATE INDEX notes_updated_idx ON notes(updated_at DESC)")
     }
@@ -57,8 +58,10 @@ class NoteStore(context: Context) :
             db.execSQL("ALTER TABLE notes ADD COLUMN reminder_at INTEGER")
         }
         if (oldVersion < 3) {
-            // Preserve legacy bodies byte-for-byte; the editor derives a display title.
             db.execSQL("ALTER TABLE notes ADD COLUMN title TEXT NOT NULL DEFAULT ''")
+        }
+        if (oldVersion < 4) {
+            db.execSQL("ALTER TABLE notes ADD COLUMN rich_html TEXT NOT NULL DEFAULT ''")
         }
     }
 
@@ -90,6 +93,16 @@ class NoteStore(context: Context) :
         return writableDatabase.update("notes", values, "id = ?", arrayOf(id.toString())) > 0
     }
 
+    fun updateRich(id: Long, title: String, body: String, richHtml: String): Boolean {
+        val values = ContentValues().apply {
+            put("title", title)
+            put("body", body)
+            put("rich_html", richHtml)
+            put("updated_at", System.currentTimeMillis())
+        }
+        return writableDatabase.update("notes", values, "id = ?", arrayOf(id.toString())) > 0
+    }
+
     fun setColor(id: Long, color: Int): Boolean =
         change(id, ContentValues().apply { put("color", NoteColors.valid(color)) })
 
@@ -107,11 +120,11 @@ class NoteStore(context: Context) :
     fun delete(id: Long): Boolean =
         writableDatabase.delete("notes", "id = ?", arrayOf(id.toString())) > 0
 
-    private val columns = arrayOf("id", "body", "updated_at", "color", "pinned", "reminder_at", "title")
+    private val columns = arrayOf("id", "body", "updated_at", "color", "pinned", "reminder_at", "title", "rich_html")
 
     private fun row(c: android.database.Cursor) = Note(
         c.getLong(0), c.getString(1), c.getLong(2), NoteColors.valid(c.getInt(3)),
-        c.getInt(4) != 0, if (c.isNull(5)) null else c.getLong(5), c.getString(6)
+        c.getInt(4) != 0, if (c.isNull(5)) null else c.getLong(5), c.getString(6), c.getString(7)
     )
 
     fun get(id: Long): Note? {
@@ -143,7 +156,7 @@ class NoteStore(context: Context) :
         val ids = mutableListOf<Long>()
         // Import is idempotent for identical notes. Keep metadata and timestamp in identity.
         val now = System.currentTimeMillis()
-        fun signature(note: Note): List<Any?> = listOf(note.customTitle, note.body, note.updatedAt,
+        fun signature(note: Note): List<Any?> = listOf(note.customTitle, note.body, note.richHtml, note.updatedAt,
             NoteColors.valid(note.color), note.pinned,
             note.reminderAt?.takeIf { it > now })
         val seen = all().map(::signature).toMutableSet()
@@ -154,6 +167,7 @@ class NoteStore(context: Context) :
                 val values = ContentValues().apply {
                     put("body", n.body)
                     put("title", n.customTitle)
+                    put("rich_html", n.richHtml)
                     put("updated_at", n.updatedAt)
                     put("color", NoteColors.valid(n.color))
                     put("pinned", if (n.pinned) 1 else 0)

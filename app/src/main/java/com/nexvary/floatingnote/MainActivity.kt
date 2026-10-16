@@ -1,4 +1,4 @@
-package com.nexvary.floatingnote
+package com.fgmachines.fgnote
 
 import android.Manifest
 import android.app.Activity
@@ -27,15 +27,21 @@ import java.util.Date
 class MainActivity : Activity() {
     companion object {
         const val EXTRA_OPEN_NOTE = "open_note"
+        const val EXTRA_PICK_IMAGE_NOTE = "pick_image_note"
         private const val REQUEST_EXPORT = 310
         private const val REQUEST_IMPORT = 311
         private const val REQUEST_SECURE_EXPORT = 312
         private const val REQUEST_SECURE_IMPORT = 313
+        private const val REQUEST_EXPORT_PDF = 314
+        private const val REQUEST_EXPORT_PNG = 315
+        private const val REQUEST_PICK_IMAGE = 316
     }
 
     private lateinit var database: NoteStore
     private lateinit var root: LinearLayout
     private var search = ""
+    private var exportId = -1L
+    private var pendingImageId = -1L
     private var pendingOverlayAction: Pair<String, Long>? = null
     private var noteContainer: LinearLayout? = null
 
@@ -70,12 +76,14 @@ class MainActivity : Activity() {
         }
         render()
         handleOpenIntent(intent)
+        handleImageIntent(intent)
     }
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
         handleOpenIntent(intent)
+        handleImageIntent(intent)
     }
 
     private fun handleOpenIntent(intent: Intent?) {
@@ -84,6 +92,29 @@ class MainActivity : Activity() {
             start(FloatingNoteService.ACTION_OPEN, id)
             intent?.removeExtra(EXTRA_OPEN_NOTE)
         }
+    }
+
+    private fun handleImageIntent(intent: Intent?) {
+        val id = intent?.getLongExtra(EXTRA_PICK_IMAGE_NOTE, -1L) ?: -1L
+        if (id < 0 || database.get(id) == null) return
+        intent?.removeExtra(EXTRA_PICK_IMAGE_NOTE)
+        pendingImageId = id
+        startActivityForResult(Intent(Intent.ACTION_GET_CONTENT).apply {
+            type = "image/*"
+            addCategory(Intent.CATEGORY_OPENABLE)
+        }, REQUEST_PICK_IMAGE)
+    }
+
+    override fun onBackPressed() {
+        AlertDialog.Builder(this)
+            .setTitle(R.string.exit_save_title)
+            .setMessage(R.string.exit_save_message)
+            .setPositiveButton(R.string.save_and_exit) { _, _ ->
+                stop()
+                finish()
+            }
+            .setNegativeButton(R.string.keep_editing, null)
+            .show()
     }
 
     override fun onResume() {
@@ -169,7 +200,7 @@ class MainActivity : Activity() {
         scroll.addView(content)
         root.addView(scroll, LinearLayout.LayoutParams(-1, 0, 1f))
 
-        content.addView(label("NEXVARY  /  WORKSPACE", 12f, Palette.MINT, true))
+        content.addView(label("FG MACHINES  /  NOTES", 12f, Palette.MINT, true))
         content.addSpace(this, 9)
         content.addView(label(getString(R.string.app_name), 29f, Palette.WHITE, true))
         content.addSpace(this, 7)
@@ -341,6 +372,10 @@ class MainActivity : Activity() {
         row.addView(action(getString(R.string.share_note_via_email), false) {
             shareNote(note.id)
         })
+        row.addSpace(this, 5)
+        row.addView(action(getString(R.string.export_note), false) {
+            offerExport(note.id)
+        })
         if (note.reminderAt != null) {
             row.addView(label(
                 getString(R.string.reminder_set,
@@ -372,6 +407,23 @@ class MainActivity : Activity() {
             putExtra(Intent.EXTRA_TEXT, message)
         }
         startActivity(Intent.createChooser(share, getString(R.string.share_note_via_email)))
+    }
+
+    private fun offerExport(id: Long) {
+        val options = arrayOf(getString(R.string.export_pdf), getString(R.string.export_png))
+        AlertDialog.Builder(this).setTitle(R.string.export_note)
+            .setItems(options) { _, which ->
+                exportId = id
+                startActivityForResult(Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
+                    addCategory(Intent.CATEGORY_OPENABLE)
+                    type = if (which == 0) "application/pdf" else "image/png"
+                    val title = database.get(id)?.title.orEmpty()
+                        .replace(Regex("[^\\p{L}\\p{N}_ -]"), "_")
+                        .take(55).ifBlank { "FG-Note" }
+                    putExtra(Intent.EXTRA_TITLE,
+                        title + (if (which == 0) ".pdf" else ".png"))
+                }, if (which == 0) REQUEST_EXPORT_PDF else REQUEST_EXPORT_PNG)
+            }.show()
     }
 
     private fun selectColor(note: Note) {
@@ -447,6 +499,42 @@ class MainActivity : Activity() {
         super.onActivityResult(requestCode, resultCode, data)
         if (resultCode != RESULT_OK) return
         val uri = data?.data ?: return
+        if (requestCode == REQUEST_PICK_IMAGE) {
+            val id = pendingImageId
+            pendingImageId = -1L
+            if (id >= 0) {
+                val service = Intent(this, FloatingNoteService::class.java).apply {
+                    action = FloatingNoteService.ACTION_INSERT_IMAGE
+                    putExtra(FloatingNoteService.EXTRA_NOTE_ID, id)
+                    putExtra("image_uri", uri.toString())
+                }
+                startForegroundService(service)
+            }
+            return
+        }
+        if (requestCode == REQUEST_EXPORT_PDF || requestCode == REQUEST_EXPORT_PNG) {
+            val note = database.get(exportId) ?: return
+            Thread {
+                try {
+                    contentResolver.openOutputStream(uri)?.use { output ->
+                        if (requestCode == REQUEST_EXPORT_PDF)
+                            NoteExporter.pdf(applicationContext, note, output)
+                        else NoteExporter.png(applicationContext, note, output)
+                    } ?: error("Unable to write export")
+                    runOnUiThread {
+                        if (!isFinishing) Toast.makeText(this, R.string.export_success,
+                            Toast.LENGTH_SHORT).show()
+                    }
+                } catch (error: Exception) {
+                    runOnUiThread {
+                        if (!isFinishing) AlertDialog.Builder(this)
+                            .setMessage(R.string.export_failed)
+                            .setPositiveButton(android.R.string.ok, null).show()
+                    }
+                }
+            }.start()
+            return
+        }
         if (requestCode == REQUEST_SECURE_EXPORT || requestCode == REQUEST_SECURE_IMPORT) {
             askArchivePassword(requestCode == REQUEST_SECURE_EXPORT) { password ->
                 runSecureArchive(requestCode, uri, password)

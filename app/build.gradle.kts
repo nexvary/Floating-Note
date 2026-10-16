@@ -16,15 +16,15 @@ android {
             }
         }
     }
-    namespace = "com.nexvary.floatingnote"
+    namespace = "com.fgmachines.fgnote"
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.nexvary.floatingnote"
+        applicationId = "com.fgmachines.fgnote"
         minSdk = 26
         targetSdk = 35
-        versionCode = 6
-        versionName = "0.3.3"
+        versionCode = 1
+        versionName = "0.4.0-beta1"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 

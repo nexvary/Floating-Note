@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 mkdir -p screenshots
-PACKAGE=com.nexvary.floatingnote
+PACKAGE=com.fgmachines.fgnote
 
 tap_accessible() {
   local target="$1"

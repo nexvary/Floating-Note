@@ -1,4 +1,4 @@
-package com.nexvary.floatingnote
+package com.fgmachines.fgnote
 
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream

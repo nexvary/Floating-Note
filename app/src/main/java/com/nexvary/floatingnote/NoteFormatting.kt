@@ -1,4 +1,4 @@
-package com.nexvary.floatingnote
+package com.fgmachines.fgnote
 
 /** Light Markdown-formatting shortcuts that keep note files plain and portable. */
 object NoteFormatting {
