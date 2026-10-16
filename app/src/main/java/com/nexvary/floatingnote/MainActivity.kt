@@ -43,6 +43,7 @@ class MainActivity : Activity() {
     private lateinit var root: LinearLayout
     private var search = ""
     private var gridMode = true
+    private var toolsExpanded = false
     private var exportId = -1L
     private var pendingImageId = -1L
     private var pendingOverlayAction: Pair<String, Long>? = null
@@ -230,8 +231,7 @@ class MainActivity : Activity() {
                 start(FloatingNoteService.ACTION_START)
             })
         }
-        content.addView(setup)
-        content.addSpace(this, 22)
+        // The floating panel is displayed after the note library.
 
         val archiveBar = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
         archiveBar.addView(action(getString(R.string.export_notes), false) { exportNotes() },
@@ -239,8 +239,7 @@ class MainActivity : Activity() {
         archiveBar.addView(android.view.View(this), LinearLayout.LayoutParams(dp(10), 1))
         archiveBar.addView(action(getString(R.string.import_notes), false) { importNotes() },
             LinearLayout.LayoutParams(0, -2, 1f))
-        content.addView(archiveBar)
-        content.addSpace(this, 10)
+        // Archive controls are attached only when expanded.
         val secureBar = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
         secureBar.addView(action(getString(R.string.export_secure), true) {
             startActivityForResult(Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
@@ -256,8 +255,7 @@ class MainActivity : Activity() {
                 type = "*/*"
             }, REQUEST_SECURE_IMPORT)
         }, LinearLayout.LayoutParams(0, -2, 1f))
-        content.addView(secureBar)
-        content.addSpace(this, 24)
+        // Prioritise notes over maintenance controls.
 
         val section = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -306,6 +304,19 @@ class MainActivity : Activity() {
         noteContainer = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         content.addView(noteContainer)
         displayNotes()
+        content.addSpace(this, 14)
+        content.addView(setup)
+        content.addSpace(this, 14)
+        content.addView(action(getString(R.string.backup_tools), false) {
+            toolsExpanded = !toolsExpanded
+            render()
+        })
+        if (toolsExpanded) {
+            content.addSpace(this, 10)
+            content.addView(archiveBar)
+            content.addSpace(this, 10)
+            content.addView(secureBar)
+        }
         filter.addTextChangedListener(object : TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
