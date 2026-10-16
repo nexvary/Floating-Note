@@ -103,7 +103,13 @@ fi
 adb shell am force-stop "$PACKAGE"
 adb shell am start -W -n "$PACKAGE/.MainActivity"
 sleep 3
-tap_accessible "Enable floating note"
+if ! tap_accessible "Enable floating note"; then
+  # In the new notes-first layout this action moves below the saved note cards.
+  adb shell input swipe 480 1250 480 300 420
+  sleep 2
+  adb exec-out screencap -p > screenshots/06-scrolled-restart.png
+  tap_accessible "Enable floating note"
+fi
 sleep 3
 
 {
