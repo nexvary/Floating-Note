@@ -17,6 +17,7 @@ import android.text.Editable
 import android.text.TextWatcher
 import android.view.Gravity
 import android.view.WindowInsets
+import android.view.WindowManager
 import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.ScrollView
@@ -62,8 +63,11 @@ class MainActivity : Activity() {
         root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setBackgroundColor(Palette.BACK)
+            isFocusableInTouchMode = true
         }
         setContentView(root)
+        window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN)
+        root.requestFocus()
         if (Build.VERSION.SDK_INT >= 33) {
             val callback = android.window.OnBackInvokedCallback { confirmExit() }
             onBackInvokedDispatcher.registerOnBackInvokedCallback(
@@ -349,6 +353,7 @@ class MainActivity : Activity() {
             }
             override fun afterTextChanged(s: Editable?) = Unit
         })
+        root.requestFocus()
     }
 
     private fun displayNotes() {
