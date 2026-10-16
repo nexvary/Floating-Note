@@ -16,7 +16,7 @@ import xml.etree.ElementTree as ET
 target = os.environ["TARGET"]
 root = ET.parse("/tmp/nexvary-window.xml").getroot()
 for node in root.iter("node"):
-    if node.attrib.get("text") != target and node.attrib.get("content-desc") != target:
+    if node.attrib.get("text", "").casefold() != target.casefold() and node.attrib.get("content-desc", "").casefold() != target.casefold():
         continue
     match = re.fullmatch(r"\[(\d+),(\d+)\]\[(\d+),(\d+)\]", node.attrib.get("bounds", ""))
     if not match:
