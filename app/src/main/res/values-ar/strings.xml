@@ -89,4 +89,8 @@
     <string name="title_bigger">تكبير عنوان الملاحظة</string>
     <string name="title_smaller">تصغير عنوان الملاحظة</string>
     <string name="title_colour">تغيير لون عنوان الملاحظة</string>
+    <string name="quick_tile_label">FG Note</string>
+    <string name="quick_tile_add">إضافة FG Note إلى الاختصارات العلوية</string>
+    <string name="quick_tile_added">تمت إضافة FG Note إلى لوحة الإعدادات السريعة</string>
+    <string name="quick_tile_manual">اسحب من أعلى الشاشة مرتين، واضغط تعديل (القلم)، ثم أضف FG Note واسحبها بجوار نقطة الاتصال الشخصية.</string>
 </resources>

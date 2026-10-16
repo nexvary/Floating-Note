@@ -19,6 +19,15 @@ import java.util.Base64
 class RichNoteInstrumentedTest {
     private val ctx get() = InstrumentationRegistry.getInstrumentation().targetContext
 
+
+    @Test fun quickSettingsTileIsRegisteredWithSystemOnlyPermission() {
+        val name = android.content.ComponentName(ctx, FGNoteTileService::class.java)
+        val info = ctx.packageManager.getServiceInfo(name, 0)
+        assertEquals("android.permission.BIND_QUICK_SETTINGS_TILE", info.permission)
+        assertTrue(info.exported)
+        assertEquals("FG Note", ctx.getString(R.string.quick_tile_label))
+    }
+
     @Test fun formattingRoundTripsAndIndependentColoursStaySeparate() {
         val note = SpannableStringBuilder("أحمر أخضر")
         RichNotes.colour(note, 0, 4, Color.RED)

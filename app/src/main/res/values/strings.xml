@@ -89,4 +89,8 @@
     <string name="title_bigger">Increase title size</string>
     <string name="title_smaller">Decrease title size</string>
     <string name="title_colour">Change title colour</string>
+    <string name="quick_tile_label">FG Note</string>
+    <string name="quick_tile_add">Add FG Note to Quick Settings</string>
+    <string name="quick_tile_added">FG Note was added to Quick Settings</string>
+    <string name="quick_tile_manual">Swipe down twice, tap Edit (pencil), then add FG Note and drag it beside your Hotspot tile.</string>
 </resources>

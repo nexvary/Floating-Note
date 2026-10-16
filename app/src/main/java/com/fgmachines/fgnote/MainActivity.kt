@@ -2,6 +2,9 @@ package com.fgmachines.fgnote
 
 import android.Manifest
 import android.app.Activity
+import android.app.StatusBarManager
+import android.content.ComponentName
+import android.graphics.drawable.Icon
 import android.app.ActivityManager
 import android.app.AlertDialog
 import android.app.DatePickerDialog
@@ -29,6 +32,7 @@ import java.util.Date
 class MainActivity : Activity() {
     companion object {
         const val EXTRA_OPEN_NOTE = "open_note"
+        const val EXTRA_TILE_TOGGLE = "fg_note_quick_tile_toggle"
         const val EXTRA_PICK_IMAGE_NOTE = "pick_image_note"
         private const val REQUEST_EXPORT = 310
         private const val REQUEST_IMPORT = 311
@@ -94,6 +98,7 @@ class MainActivity : Activity() {
         render()
         handleOpenIntent(intent)
         handleImageIntent(intent)
+        handleQuickTileIntent(intent)
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -101,6 +106,7 @@ class MainActivity : Activity() {
         setIntent(intent)
         handleOpenIntent(intent)
         handleImageIntent(intent)
+        handleQuickTileIntent(intent)
     }
 
     private fun handleOpenIntent(intent: Intent?) {
@@ -108,6 +114,41 @@ class MainActivity : Activity() {
         if (id >= 0 && database.get(id) != null) {
             start(FloatingNoteService.ACTION_OPEN, id)
             intent?.removeExtra(EXTRA_OPEN_NOTE)
+        }
+    }
+
+    /** Invoked if the system prohibits direct quick-tile background service launch. */
+    private fun handleQuickTileIntent(intent: Intent?) {
+        if (intent?.getBooleanExtra(EXTRA_TILE_TOGGLE, false) != true) return
+        intent.removeExtra(EXTRA_TILE_TOGGLE)
+        if (isRunning()) stop() else start(FloatingNoteService.ACTION_START)
+    }
+
+    private fun addQuickTile() {
+        if (Build.VERSION.SDK_INT >= 33) {
+            val manager = getSystemService(StatusBarManager::class.java)
+            try {
+                manager.requestAddTileService(
+                    ComponentName(this, FGNoteTileService::class.java),
+                    getString(R.string.quick_tile_label),
+                    Icon.createWithResource(this, R.drawable.ic_quick_tile),
+                    mainExecutor
+                ) { result ->
+                    if (result == StatusBarManager.TILE_ADD_REQUEST_RESULT_TILE_ADDED) {
+                        Toast.makeText(this, R.string.quick_tile_added, Toast.LENGTH_SHORT).show()
+                    } else {
+                        Toast.makeText(this, R.string.quick_tile_manual, Toast.LENGTH_LONG).show()
+                    }
+                }
+            } catch (_: RuntimeException) {
+                Toast.makeText(this, R.string.quick_tile_manual, Toast.LENGTH_LONG).show()
+            }
+        } else {
+            AlertDialog.Builder(this)
+                .setTitle(R.string.quick_tile_label)
+                .setMessage(R.string.quick_tile_manual)
+                .setPositiveButton(android.R.string.ok, null)
+                .show()
         }
     }
 
@@ -210,6 +251,7 @@ class MainActivity : Activity() {
         stopService(Intent(this, FloatingNoteService::class.java))
         getSharedPreferences("overlay_state", MODE_PRIVATE).edit().putBoolean("active", false).apply()
         render()
+        FGNoteTileService.refresh(this)
     }
 
     private fun requestOverlay() {
@@ -259,6 +301,10 @@ class MainActivity : Activity() {
                 start(FloatingNoteService.ACTION_START)
             })
         }
+        setup.addSpace(this, 12)
+        setup.addView(action(getString(R.string.quick_tile_add), false) {
+            addQuickTile()
+        })
         // The floating panel is displayed after the note library.
 
         val archiveBar = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }

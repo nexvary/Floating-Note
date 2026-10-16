@@ -22,6 +22,17 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        <!-- An opt-in Quick Settings tile alongside Wi-Fi, Hotspot, and Bluetooth. -->
+        <service
+            android:name=".FGNoteTileService"
+            android:label="@string/quick_tile_label"
+            android:icon="@drawable/ic_quick_tile"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
         <service
             android:name=".FloatingNoteService"
             android:exported="false"
