@@ -18,6 +18,7 @@ import android.os.IBinder
 import android.os.Looper
 import android.provider.Settings
 import android.text.Editable
+import android.text.InputFilter
 import android.text.InputType
 import android.text.TextWatcher
 import android.view.Gravity
@@ -334,6 +335,7 @@ class FloatingNoteService : Service() {
 
         val titleInput = EditText(this).apply {
             setSingleLine(true)
+            filters = arrayOf(InputFilter.LengthFilter(250))
             setText(note.customTitle)
             setTextColor(Palette.WHITE)
             setHintTextColor(Palette.MUTED)
