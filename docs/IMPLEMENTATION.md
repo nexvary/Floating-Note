@@ -1,4 +1,4 @@
-# NEXVARY Floating Note — development status
+# FG Note — development status
 
 ## Version 0.3.1 deliverables (implementation; CI required)
 

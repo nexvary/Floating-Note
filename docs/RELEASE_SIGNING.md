@@ -1,4 +1,4 @@
-# Secure production signing — NEXVARY Floating Note
+# Secure production signing — FG Note
 
 Development APKs are signed with temporary Android debug certificates. They
 are useful for testing, but are not suitable for consistent in-place upgrades.

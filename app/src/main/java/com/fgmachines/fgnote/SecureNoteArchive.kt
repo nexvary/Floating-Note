@@ -57,7 +57,7 @@ object SecureNoteArchive {
         require(encrypted.size in (HEADER + 16)..MAX_ENCRYPTED) { "Invalid encrypted backup" }
         val header = encrypted.copyOfRange(0, HEADER)
         require(header.copyOfRange(0, MAGIC.size).contentEquals(MAGIC)) {
-            "Not a NEXVARY encrypted backup"
+            "Not a compatible FG Note encrypted backup"
         }
         val salt = header.copyOfRange(4, 4 + SALT_SIZE)
         val nonce = header.copyOfRange(4 + SALT_SIZE, HEADER)

@@ -245,7 +245,7 @@ class MainActivity : Activity() {
             startActivityForResult(Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
                 addCategory(Intent.CATEGORY_OPENABLE)
                 type = "application/octet-stream"
-                putExtra(Intent.EXTRA_TITLE, "nexvary-protected-notes.nfn")
+                putExtra(Intent.EXTRA_TITLE, "fg-note-protected-notes.nfn")
             }, REQUEST_SECURE_EXPORT)
         }, LinearLayout.LayoutParams(0, -2, 1f))
         secureBar.addView(android.view.View(this), LinearLayout.LayoutParams(dp(10), 1))

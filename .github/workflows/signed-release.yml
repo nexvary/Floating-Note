@@ -42,7 +42,7 @@ jobs:
             echo "::error::Configure all four signing secrets first." >&2
             exit 1
           fi
-          keyfile="$RUNNER_TEMP/nexvary-production.jks"
+          keyfile="$RUNNER_TEMP/fg-note-production.jks"
           printf '%s' "$KEYSTORE_B64" | base64 --decode > "$keyfile"
           chmod 600 "$keyfile"
           test -s "$keyfile"
@@ -63,11 +63,11 @@ jobs:
       - name: Upload signed release APK
         uses: actions/upload-artifact@v4
         with:
-          name: NEXVARY-Floating-Note-signed-release
+          name: FG-Note-signed-release
           path: app/build/outputs/apk/release/app-release.apk
           if-no-files-found: error
           retention-days: 30
       - name: Discard signing material
         if: always()
         shell: bash
-        run: rm -f "$RUNNER_TEMP/nexvary-production.jks"
+        run: rm -f "$RUNNER_TEMP/fg-note-production.jks"
