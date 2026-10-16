@@ -1,5 +1,6 @@
 package com.fgmachines.fgnote
 
+import android.annotation.SuppressLint
 import android.app.ActivityManager
 import android.app.PendingIntent
 import android.content.ComponentName
@@ -51,6 +52,8 @@ class FGNoteTileService : TileService() {
         }
     }
 
+    // Android 8–13 require the legacy Intent overload; 14+ use PendingIntent.
+    @SuppressLint("StartActivityAndCollapseDeprecated")
     private fun launchVisibleApp() {
         val activity = Intent(this, MainActivity::class.java).apply {
             action = Intent.ACTION_MAIN
