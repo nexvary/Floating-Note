@@ -2,6 +2,7 @@ package com.fgmachines.fgnote
 
 import android.Manifest
 import android.app.Activity
+import android.app.ActivityManager
 import android.app.AlertDialog
 import android.app.DatePickerDialog
 import android.app.TimePickerDialog
@@ -147,8 +148,15 @@ class MainActivity : Activity() {
     }
 
     private fun overlayAllowed() = Settings.canDrawOverlays(this)
-    private fun isRunning() =
-        getSharedPreferences("overlay_state", MODE_PRIVATE).getBoolean("active", false)
+    @Suppress("DEPRECATION")
+    private fun isRunning(): Boolean {
+        // Package-local running service lookup remains available from Android 8+.
+        // Unlike SharedPreferences, it cannot remain stale after Force Stop.
+        val manager = getSystemService(ACTIVITY_SERVICE) as ActivityManager
+        return manager.getRunningServices(100).any { service ->
+            service.service.className == FloatingNoteService::class.java.name
+        }
+    }
 
     private fun start(action: String, id: Long = -1L) {
         if (!overlayAllowed()) {
