@@ -47,6 +47,22 @@ object NoteExporter {
             100f, 2f, 2f, paint)
     }
 
+    fun txt(note: Note, destination: OutputStream) {
+        destination.write((note.title + "\n\n" + note.body).toByteArray(Charsets.UTF_8))
+        destination.flush()
+    }
+
+    fun html(note: Note, destination: OutputStream) {
+        val escaped = android.text.TextUtils.htmlEncode(note.title)
+        val body = if (note.richHtml.isNotBlank()) note.richHtml else
+            android.text.TextUtils.htmlEncode(note.body).replace("\n", "<br/>")
+        val output = "<!doctype html><html lang=\"ar\"><head><meta charset=\"utf-8\"/>" +
+            "<title>" + escaped + "</title></head><body><h1>" + escaped +
+            "</h1><article>" + body + "</article></body></html>"
+        destination.write(output.toByteArray(Charsets.UTF_8))
+        destination.flush()
+    }
+
     fun pdf(context: Context, note: Note, destination: OutputStream) {
         val document = PdfDocument()
         try {

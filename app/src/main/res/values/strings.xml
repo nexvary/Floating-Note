@@ -82,4 +82,7 @@
     <string name="export_failed">Export failed</string>
     <string name="undo_delete">Undo deleted note</string>
     <string name="note_restored">Note restored</string>
+    <string name="export_txt">Plain text (TXT)</string>
+    <string name="export_html">Rich HTML</string>
+    <string name="grid_mode">Grid or list view</string>
 </resources>

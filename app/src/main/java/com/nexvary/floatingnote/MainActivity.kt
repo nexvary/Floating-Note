@@ -35,11 +35,14 @@ class MainActivity : Activity() {
         private const val REQUEST_EXPORT_PDF = 314
         private const val REQUEST_EXPORT_PNG = 315
         private const val REQUEST_PICK_IMAGE = 316
+        private const val REQUEST_EXPORT_TXT = 317
+        private const val REQUEST_EXPORT_HTML = 318
     }
 
     private lateinit var database: NoteStore
     private lateinit var root: LinearLayout
     private var search = ""
+    private var gridMode = true
     private var exportId = -1L
     private var pendingImageId = -1L
     private var pendingOverlayAction: Pair<String, Long>? = null
@@ -273,6 +276,11 @@ class MainActivity : Activity() {
                 render()
             })
         }
+        section.addView(icon(R.drawable.ic_grid, getString(R.string.grid_mode),
+            Palette.PANEL_LIGHT, 46) {
+            gridMode = !gridMode
+            displayNotes()
+        })
         section.addView(icon(R.drawable.ic_add, getString(R.string.new_note),
             Palette.PANEL_LIGHT, 46) {
             val newId = database.create()
@@ -317,10 +325,21 @@ class MainActivity : Activity() {
                 else R.string.empty_notes), 15f, Palette.MUTED)
             empty.setPadding(dp(12), dp(24), dp(12), dp(24))
             parent.addView(empty)
-        } else list.forEach { addNoteCard(parent, it) }
+        } else if (gridMode && resources.configuration.screenWidthDp >= 350) {
+            list.chunked(2).forEach { pair ->
+                val line = LinearLayout(this).apply {
+                    orientation = LinearLayout.HORIZONTAL
+                    gravity = Gravity.TOP
+                }
+                pair.forEach { addNoteCard(line, it, grid = true) }
+                if (pair.size == 1) line.addView(android.view.View(this),
+                    LinearLayout.LayoutParams(0, 1, 1f))
+                parent.addView(line, LinearLayout.LayoutParams(-1, -2))
+            }
+        } else list.forEach { addNoteCard(parent, it, grid = false) }
     }
 
-    private fun addNoteCard(parent: LinearLayout, note: Note) {
+    private fun addNoteCard(parent: LinearLayout, note: Note, grid: Boolean) {
         val accent = NoteColors.accents[note.color]
         val row = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -350,23 +369,25 @@ class MainActivity : Activity() {
         row.addView(preview)
         row.addSpace(this, 9)
         val footer = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+        }
+        val buttons = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
         }
         val dateText = DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT)
             .format(Date(note.updatedAt))
-        footer.addView(label(dateText, 11f, Palette.MUTED),
-            LinearLayout.LayoutParams(0, -2, 1f))
-        footer.addView(icon(R.drawable.ic_palette, getString(R.string.note_color), Palette.PANEL,
+        footer.addView(label(dateText, 11f, Palette.MUTED))
+        buttons.addView(icon(R.drawable.ic_palette, getString(R.string.note_color), Palette.PANEL,
             38) { selectColor(note) })
-        footer.addView(icon(R.drawable.ic_pin, getString(R.string.pin_note), Palette.PANEL,
+        buttons.addView(icon(R.drawable.ic_pin, getString(R.string.pin_note), Palette.PANEL,
             38) {
             database.setPinned(note.id, !note.pinned)
             displayNotes()
         })
-        footer.addView(icon(R.drawable.ic_bell, getString(R.string.reminders), Palette.PANEL,
+        buttons.addView(icon(R.drawable.ic_bell, getString(R.string.reminders), Palette.PANEL,
             38) { selectReminder(note) })
-        footer.addView(icon(R.drawable.ic_trash, getString(R.string.delete), Palette.PANEL,
+        buttons.addView(icon(R.drawable.ic_trash, getString(R.string.delete), Palette.PANEL,
             38) {
             AlertDialog.Builder(this)
                 .setMessage(R.string.delete_question)
@@ -378,6 +399,11 @@ class MainActivity : Activity() {
                     render()
                 }.show()
         })
+        val toolsScroll = android.widget.HorizontalScrollView(this).apply {
+            isHorizontalScrollBarEnabled = false
+            addView(buttons)
+        }
+        footer.addView(toolsScroll, LinearLayout.LayoutParams(-1, dp(40)))
         row.addView(footer)
         row.addSpace(this, 9)
         row.addView(action(getString(R.string.share_note_via_email), false) {
@@ -395,7 +421,11 @@ class MainActivity : Activity() {
             ))
         }
         row.setOnClickListener { start(FloatingNoteService.ACTION_OPEN, note.id) }
-        parent.addView(row, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(12) })
+        val layout = if (grid) LinearLayout.LayoutParams(0, -2, 1f)
+                     else LinearLayout.LayoutParams(-1, -2)
+        layout.bottomMargin = dp(12)
+        if (grid) layout.marginEnd = dp(7)
+        parent.addView(row, layout)
     }
 
     /**
@@ -421,19 +451,25 @@ class MainActivity : Activity() {
     }
 
     private fun offerExport(id: Long) {
-        val options = arrayOf(getString(R.string.export_pdf), getString(R.string.export_png))
+        val options = arrayOf(getString(R.string.export_pdf), getString(R.string.export_png),
+            getString(R.string.export_txt), getString(R.string.export_html))
         AlertDialog.Builder(this).setTitle(R.string.export_note)
             .setItems(options) { _, which ->
                 exportId = id
                 startActivityForResult(Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
                     addCategory(Intent.CATEGORY_OPENABLE)
-                    type = if (which == 0) "application/pdf" else "image/png"
+                    type = when (which) {
+                        0 -> "application/pdf"
+                        1 -> "image/png"
+                        2 -> "text/plain"
+                        else -> "text/html"
+                    }
                     val title = database.get(id)?.title.orEmpty()
                         .replace(Regex("[^\\p{L}\\p{N}_ -]"), "_")
                         .take(55).ifBlank { "FG-Note" }
-                    putExtra(Intent.EXTRA_TITLE,
-                        title + (if (which == 0) ".pdf" else ".png"))
-                }, if (which == 0) REQUEST_EXPORT_PDF else REQUEST_EXPORT_PNG)
+                    val suffix = arrayOf(".pdf", ".png", ".txt", ".html")[which]
+                    putExtra(Intent.EXTRA_TITLE, title + suffix)
+                }, REQUEST_EXPORT_PDF + which)
             }.show()
     }
 
@@ -523,14 +559,17 @@ class MainActivity : Activity() {
             }
             return
         }
-        if (requestCode == REQUEST_EXPORT_PDF || requestCode == REQUEST_EXPORT_PNG) {
+        if (requestCode in REQUEST_EXPORT_PDF..REQUEST_EXPORT_HTML) {
             val note = database.get(exportId) ?: return
             Thread {
                 try {
                     contentResolver.openOutputStream(uri)?.use { output ->
-                        if (requestCode == REQUEST_EXPORT_PDF)
-                            NoteExporter.pdf(applicationContext, note, output)
-                        else NoteExporter.png(applicationContext, note, output)
+                        when (requestCode) {
+                            REQUEST_EXPORT_PDF -> NoteExporter.pdf(applicationContext, note, output)
+                            REQUEST_EXPORT_PNG -> NoteExporter.png(applicationContext, note, output)
+                            REQUEST_EXPORT_TXT -> NoteExporter.txt(note, output)
+                            REQUEST_EXPORT_HTML -> NoteExporter.html(note, output)
+                        }
                     } ?: error("Unable to write export")
                     runOnUiThread {
                         if (!isFinishing) Toast.makeText(this, R.string.export_success,

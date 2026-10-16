@@ -82,4 +82,7 @@
     <string name="export_failed">تعذّر التصدير</string>
     <string name="undo_delete">التراجع عن حذف الملاحظة</string>
     <string name="note_restored">تم استعادة الملاحظة</string>
+    <string name="export_txt">نص عادي TXT</string>
+    <string name="export_html">صفحة HTML منسقة</string>
+    <string name="grid_mode">شبكة الملاحظات أو القائمة</string>
 </resources>
