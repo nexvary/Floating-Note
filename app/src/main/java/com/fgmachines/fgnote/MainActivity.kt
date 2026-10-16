@@ -44,6 +44,7 @@ class MainActivity : Activity() {
     private lateinit var root: LinearLayout
     private var search = ""
     private var gridMode = true
+    private var backCallback: android.window.OnBackInvokedCallback? = null
     private var toolsExpanded = false
     private var exportId = -1L
     private var pendingImageId = -1L
@@ -63,6 +64,13 @@ class MainActivity : Activity() {
             setBackgroundColor(Palette.BACK)
         }
         setContentView(root)
+        if (Build.VERSION.SDK_INT >= 33) {
+            val callback = android.window.OnBackInvokedCallback { confirmExit() }
+            onBackInvokedDispatcher.registerOnBackInvokedCallback(
+                android.window.OnBackInvokedDispatcher.PRIORITY_DEFAULT, callback
+            )
+            backCallback = callback
+        }
         root.setOnApplyWindowInsetsListener { _, insets ->
             val top: Int
             val bottom: Int
@@ -110,7 +118,12 @@ class MainActivity : Activity() {
         }, REQUEST_PICK_IMAGE)
     }
 
+    @Suppress("DEPRECATION")
     override fun onBackPressed() {
+        confirmExit()
+    }
+
+    private fun confirmExit() {
         AlertDialog.Builder(this)
             .setTitle(R.string.exit_save_title)
             .setMessage(R.string.exit_save_message)
@@ -143,6 +156,9 @@ class MainActivity : Activity() {
     }
 
     override fun onDestroy() {
+        if (Build.VERSION.SDK_INT >= 33) {
+            backCallback?.let { onBackInvokedDispatcher.unregisterOnBackInvokedCallback(it) }
+        }
         database.close()
         super.onDestroy()
     }

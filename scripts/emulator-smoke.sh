@@ -43,6 +43,15 @@ sleep 6
 # An AOSP emulator avoids Google Pixel Launcher ANR on hosted runners.
 adb exec-out screencap -p > screenshots/01-home.png
 
+# Back-navigation must ask for save confirmation, not silently exit.
+adb shell input keyevent 4
+sleep 2
+adb shell uiautomator dump /sdcard/fg-note-back.xml
+adb pull /sdcard/fg-note-back.xml /tmp/fg-note-back.xml >/dev/null
+grep -q "Save notes before exit?" /tmp/fg-note-back.xml
+tap_accessible "Keep editing"
+sleep 2
+
 # Start the non-exported foreground service through the app's own button.
 if ! tap_accessible "Enable floating note"; then
   sleep 7
