@@ -22,8 +22,10 @@ object NoteArchive {
         val list = JSONArray()
         notes.forEach { n ->
             require(n.body.length <= MAX_BODY) { "Note too large" }
+            require(n.customTitle.length <= 250) { "Title too long" }
             list.put(JSONObject()
                 .put("body", n.body)
+                .put("title", n.customTitle)
                 .put("updatedAt", n.updatedAt)
                 .put("color", n.color)
                 .put("pinned", n.pinned)
@@ -56,13 +58,15 @@ object NoteArchive {
         for (i in 0 until entries.length()) {
             val item = entries.getJSONObject(i)
             val body = item.getString("body")
+            val title = item.optString("title", "")
+            require(title.length <= 250) { "Title too long" }
             require(body.length <= MAX_BODY) { "Note too large" }
             val updated = item.getLong("updatedAt")
             require(updated > 0) { "Invalid date" }
             val color = item.getInt("color")
             require(color in NoteColors.backgrounds.indices) { "Invalid color" }
             val reminder = if (item.isNull("reminderAt")) null else item.getLong("reminderAt")
-            result.add(Note(-1, body, updated, color, item.getBoolean("pinned"), reminder))
+            result.add(Note(-1, body, updated, color, item.getBoolean("pinned"), reminder, title))
         }
         return result
     }

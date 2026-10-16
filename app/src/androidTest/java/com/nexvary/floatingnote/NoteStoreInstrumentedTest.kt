@@ -68,6 +68,55 @@ class NoteStoreInstrumentedTest {
     }
 
     @Test
+    fun legacyV2MigrationPreservesRowsAndSupportsIndependentTitles() {
+        val file = context.getDatabasePath(DB_NAME)
+        file.parentFile?.mkdirs()
+        val oldDb = SQLiteDatabase.openOrCreateDatabase(file, null)
+        oldDb.execSQL(
+            "CREATE TABLE notes (id INTEGER PRIMARY KEY AUTOINCREMENT, body TEXT NOT NULL, " +
+                "updated_at INTEGER NOT NULL, color INTEGER NOT NULL DEFAULT 0, " +
+                "pinned INTEGER NOT NULL DEFAULT 0, reminder_at INTEGER)"
+        )
+        oldDb.execSQL("CREATE INDEX notes_updated_idx ON notes(updated_at DESC)")
+        oldDb.execSQL(
+            "INSERT INTO notes(id, body, updated_at, color, pinned) VALUES (?, ?, ?, ?, ?)",
+            arrayOf<Any>(33L, "محتوى قديم", 123L, 2, 1)
+        )
+        oldDb.version = 2
+        oldDb.close()
+        withStore { store ->
+            val legacy = store.get(33)!!
+            assertEquals("محتوى قديم", legacy.body)
+            assertEquals("", legacy.customTitle)
+            assertEquals(2, legacy.color)
+            assertTrue(legacy.pinned)
+            assertTrue(store.updateNote(33, "عنوان جديد", "محتوى قديم"))
+        }
+        withStore { store ->
+            val reopened = store.get(33)!!
+            assertEquals("عنوان جديد", reopened.customTitle)
+            assertEquals("محتوى قديم", reopened.body)
+            assertEquals(listOf(33L), store.search("عنوان جديد").map { it.id })
+        }
+    }
+
+    @Test
+    fun titleAndBodyAutosaveAreAtomicAndSurviveDatabaseReopen() {
+        val id = withStore { store ->
+            val created = store.create()
+            assertTrue(store.updateNote(created, "قائمة المشتريات", "الخبز\nالحليب"))
+            created
+        }
+        withStore { store ->
+            val note = store.get(id)!!
+            assertEquals("قائمة المشتريات", note.customTitle)
+            assertEquals("الخبز\nالحليب", note.body)
+            assertEquals(listOf(id), store.search("المشتريات").map { it.id })
+            assertFalse(store.updateNote(-1, "غير صالح", "test"))
+        }
+    }
+
+    @Test
     fun pinnedOrderingArabicSearchAndPersistence() {
         val reminderAt = System.currentTimeMillis() + 86_400_000L
         val (regular, pinned) = withStore { store ->

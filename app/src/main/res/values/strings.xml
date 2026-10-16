@@ -60,4 +60,6 @@
     <string name="too_many_windows">You can open up to four floating notes. Minimize one to open another.</string>
     <string name="toggle_checklist">Toggle checklist item</string>
     <string name="mark_bold">Bold Markdown</string>
+    <string name="note_title_hint">Title</string>
+    <string name="share_note_via_email">Share via email (Gmail / Proton)</string>
 </resources>

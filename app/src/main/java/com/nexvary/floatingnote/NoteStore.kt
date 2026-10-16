@@ -11,9 +11,10 @@ data class Note(
     val updatedAt: Long,
     val color: Int = 0,
     val pinned: Boolean = false,
-    val reminderAt: Long? = null
+    val reminderAt: Long? = null,
+    val customTitle: String = ""
 ) {
-    val title: String get() = NoteText.title(body)
+    val title: String get() = customTitle.ifBlank { NoteText.title(body) }
 }
 
 object NoteText {
@@ -38,13 +39,13 @@ object NoteColors {
 
 /** Versioned migrations preserve all existing user notes, including 0.1.0 databases. */
 class NoteStore(context: Context) :
-    SQLiteOpenHelper(context.applicationContext, "floating_notes.db", null, 2) {
+    SQLiteOpenHelper(context.applicationContext, "floating_notes.db", null, 3) {
     override fun onCreate(db: SQLiteDatabase) {
         db.execSQL(
             "CREATE TABLE notes (id INTEGER PRIMARY KEY AUTOINCREMENT, " +
                 "body TEXT NOT NULL, updated_at INTEGER NOT NULL, " +
                 "color INTEGER NOT NULL DEFAULT 0, pinned INTEGER NOT NULL DEFAULT 0, " +
-                "reminder_at INTEGER)"
+                "reminder_at INTEGER, title TEXT NOT NULL DEFAULT '')"
         )
         db.execSQL("CREATE INDEX notes_updated_idx ON notes(updated_at DESC)")
     }
@@ -55,11 +56,16 @@ class NoteStore(context: Context) :
             db.execSQL("ALTER TABLE notes ADD COLUMN pinned INTEGER NOT NULL DEFAULT 0")
             db.execSQL("ALTER TABLE notes ADD COLUMN reminder_at INTEGER")
         }
+        if (oldVersion < 3) {
+            // Preserve legacy bodies byte-for-byte; the editor derives a display title.
+            db.execSQL("ALTER TABLE notes ADD COLUMN title TEXT NOT NULL DEFAULT ''")
+        }
     }
 
-    fun create(body: String = "", color: Int = 0): Long {
+    fun create(body: String = "", color: Int = 0, title: String = ""): Long {
         val values = ContentValues().apply {
             put("body", body)
+            put("title", title)
             put("updated_at", System.currentTimeMillis())
             put("color", NoteColors.valid(color))
         }
@@ -68,6 +74,16 @@ class NoteStore(context: Context) :
 
     fun update(id: Long, body: String): Boolean {
         val values = ContentValues().apply {
+            put("body", body)
+            put("updated_at", System.currentTimeMillis())
+        }
+        return writableDatabase.update("notes", values, "id = ?", arrayOf(id.toString())) > 0
+    }
+
+    /** Atomically persist the independent title and body in one autosave operation. */
+    fun updateNote(id: Long, title: String, body: String): Boolean {
+        val values = ContentValues().apply {
+            put("title", title)
             put("body", body)
             put("updated_at", System.currentTimeMillis())
         }
@@ -91,11 +107,11 @@ class NoteStore(context: Context) :
     fun delete(id: Long): Boolean =
         writableDatabase.delete("notes", "id = ?", arrayOf(id.toString())) > 0
 
-    private val columns = arrayOf("id", "body", "updated_at", "color", "pinned", "reminder_at")
+    private val columns = arrayOf("id", "body", "updated_at", "color", "pinned", "reminder_at", "title")
 
     private fun row(c: android.database.Cursor) = Note(
         c.getLong(0), c.getString(1), c.getLong(2), NoteColors.valid(c.getInt(3)),
-        c.getInt(4) != 0, if (c.isNull(5)) null else c.getLong(5)
+        c.getInt(4) != 0, if (c.isNull(5)) null else c.getLong(5), c.getString(6)
     )
 
     fun get(id: Long): Note? {
@@ -116,7 +132,7 @@ class NoteStore(context: Context) :
     }
 
     fun search(query: String): List<Note> =
-        if (query.isBlank()) all() else all().filter { NoteText.matches(it.body, query) }
+        if (query.isBlank()) all() else all().filter { NoteText.matches(it.body, query) || NoteText.matches(it.customTitle, query) }
 
     /**
      * Validate archive before calling. Use a transaction so failures never leave
@@ -127,7 +143,7 @@ class NoteStore(context: Context) :
         val ids = mutableListOf<Long>()
         // Import is idempotent for identical notes. Keep metadata and timestamp in identity.
         val now = System.currentTimeMillis()
-        fun signature(note: Note): List<Any?> = listOf(note.body, note.updatedAt,
+        fun signature(note: Note): List<Any?> = listOf(note.customTitle, note.body, note.updatedAt,
             NoteColors.valid(note.color), note.pinned,
             note.reminderAt?.takeIf { it > now })
         val seen = all().map(::signature).toMutableSet()
@@ -137,6 +153,7 @@ class NoteStore(context: Context) :
                 if (!seen.add(signature(n))) continue
                 val values = ContentValues().apply {
                     put("body", n.body)
+                    put("title", n.customTitle)
                     put("updated_at", n.updatedAt)
                     put("color", NoteColors.valid(n.color))
                     put("pinned", if (n.pinned) 1 else 0)

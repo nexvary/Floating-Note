@@ -57,6 +57,7 @@ class FloatingNoteService : Service() {
     private data class EditorSession(
         val view: LinearLayout,
         val input: EditText,
+        val titleInput: EditText,
         val params: WindowManager.LayoutParams
     )
     // Every open note owns its window and save callback; switching notes never discards edits.
@@ -331,6 +332,21 @@ class FloatingNoteService : Service() {
         card.addView(header)
         card.addSpace(this, 8)
 
+        val titleInput = EditText(this).apply {
+            setSingleLine(true)
+            setText(note.customTitle)
+            setTextColor(Palette.WHITE)
+            setHintTextColor(Palette.MUTED)
+            setHint(R.string.note_title_hint)
+            textSize = 18f
+            setPadding(dp(12), dp(8), dp(12), dp(8))
+            background = roundShape(Palette.PANEL_LIGHT, 12)
+            textDirection = View.TEXT_DIRECTION_FIRST_STRONG
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_CAP_SENTENCES
+        }
+        card.addView(titleInput, LinearLayout.LayoutParams(-1, dp(50)))
+        card.addSpace(this, 9)
+
         val input = EditText(this).apply {
             setText(note.body)
             setTextColor(Palette.WHITE)
@@ -380,22 +396,32 @@ class FloatingNoteService : Service() {
         })
         footer.addView(resize)
         card.addView(footer)
-        heading.text = NoteText.title(note.body).ifBlank { getString(R.string.untitled) }
-        input.addTextChangedListener(object : TextWatcher {
+        fun updateHeading() {
+            heading.text = titleInput.text.toString().trim()
+                .ifBlank { NoteText.title(input.text.toString()) }
+                .ifBlank { getString(R.string.untitled) }
+        }
+
+        fun scheduleAutosave() {
+            updateHeading()
+            pendingSaves.remove(noteId)?.let(handler::removeCallbacks)
+            val save = Runnable {
+                notes.updateNote(noteId, titleInput.text.toString(), input.text.toString())
+                pendingSaves.remove(noteId)
+            }
+            pendingSaves[noteId] = save
+            handler.postDelayed(save, 350)
+        }
+        val watcher = object : TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
-                heading.text = NoteText.title(s?.toString().orEmpty())
-                    .ifBlank { getString(R.string.untitled) }
-                pendingSaves.remove(noteId)?.let(handler::removeCallbacks)
-                val save = Runnable {
-                    notes.update(noteId, input.text.toString())
-                    pendingSaves.remove(noteId)
-                }
-                pendingSaves[noteId] = save
-                handler.postDelayed(save, 350)
+                scheduleAutosave()
             }
             override fun afterTextChanged(s: Editable?) = Unit
-        })
+        }
+        updateHeading()
+        input.addTextChangedListener(watcher)
+        titleInput.addTextChangedListener(watcher)
 
         val sizePrefs = getSharedPreferences("editor_size", MODE_PRIVATE)
         val maxWidth = max(dp(220), screenWidth() - dp(16))
@@ -477,7 +503,7 @@ class FloatingNoteService : Service() {
             }
         }
         if (!addWindow(card, p)) return
-        editors[noteId] = EditorSession(card, input, p)
+        editors[noteId] = EditorSession(card, input, titleInput, p)
         keepBubbleAboveEditor()
         input.setOnFocusChangeListener { _, focused ->
             if (focused) activeNoteId = noteId
@@ -487,7 +513,7 @@ class FloatingNoteService : Service() {
     private fun closeEditor(noteId: Long) {
         pendingSaves.remove(noteId)?.let(handler::removeCallbacks)
         val session = editors.remove(noteId) ?: return
-        notes.update(noteId, session.input.text.toString())
+        notes.updateNote(noteId, session.titleInput.text.toString(), session.input.text.toString())
         removeWindow(session.view)
         if (activeNoteId == noteId) activeNoteId = editors.keys.lastOrNull() ?: -1L
     }

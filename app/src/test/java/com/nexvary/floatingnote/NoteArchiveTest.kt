@@ -24,6 +24,20 @@ class NoteArchiveTest {
         assertFalse(result[1].pinned)
     }
 
+    @Test fun independentTitleSurvivesBackupAndOldFilesRemainReadable() {
+        val original = Note(71, "Only body", 777L, 1, false, null, "عنوان مختلف")
+        val bytes = ByteArrayOutputStream()
+        NoteArchive.export(listOf(original), bytes)
+        val decoded = NoteArchive.read(ByteArrayInputStream(bytes.toByteArray()))
+        assertEquals("عنوان مختلف", decoded.single().customTitle)
+        assertEquals("Only body", decoded.single().body)
+
+        val legacy = """{"format":"nexvary-floating-note","version":1,"notes":[{"body":"Legacy note","updatedAt":12,"color":0,"pinned":false,"reminderAt":null}]}"""
+        val restored = NoteArchive.read(ByteArrayInputStream(legacy.toByteArray()))
+        assertEquals("", restored.single().customTitle)
+        assertEquals("Legacy note", restored.single().title)
+    }
+
     @Test(expected = IllegalArgumentException::class)
     fun refusesOversizeArchive() {
         NoteArchive.read(ByteArrayInputStream(ByteArray(NoteArchive.MAX_BYTES + 1)))

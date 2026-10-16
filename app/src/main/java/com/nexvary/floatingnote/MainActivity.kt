@@ -337,6 +337,10 @@ class MainActivity : Activity() {
                 }.show()
         })
         row.addView(footer)
+        row.addSpace(this, 9)
+        row.addView(action(getString(R.string.share_note_via_email), false) {
+            shareNote(note.id)
+        })
         if (note.reminderAt != null) {
             row.addView(label(
                 getString(R.string.reminder_set,
@@ -346,6 +350,28 @@ class MainActivity : Activity() {
         }
         row.setOnClickListener { start(FloatingNoteService.ACTION_OPEN, note.id) }
         parent.addView(row, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(12) })
+    }
+
+    /**
+     * User-controlled Android share sheet. Supports installed Gmail and Proton Mail
+     * clients without accessing mailbox credentials or claiming cloud synchronisation.
+     */
+    private fun shareNote(noteId: Long) {
+        val note = database.get(noteId) ?: return
+        val subject = note.title.ifBlank { getString(R.string.untitled) }
+        val message = buildString {
+            append(subject)
+            if (note.body.isNotBlank()) {
+                append("\n\n")
+                append(note.body)
+            }
+        }
+        val share = Intent(Intent.ACTION_SEND).apply {
+            type = "text/plain"
+            putExtra(Intent.EXTRA_SUBJECT, subject)
+            putExtra(Intent.EXTRA_TEXT, message)
+        }
+        startActivity(Intent.createChooser(share, getString(R.string.share_note_via_email)))
     }
 
     private fun selectColor(note: Note) {

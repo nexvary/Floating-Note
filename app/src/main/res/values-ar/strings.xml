@@ -60,4 +60,6 @@
     <string name="too_many_windows">يمكن فتح أربع ملاحظات عائمة. صغّر إحداها لفتح ملاحظة أخرى.</string>
     <string name="toggle_checklist">تبديل حالة المهمة</string>
     <string name="mark_bold">تنسيق غامق</string>
+    <string name="note_title_hint">عنوان الملاحظة</string>
+    <string name="share_note_via_email">مشاركة بالبريد (Gmail / Proton)</string>
 </resources>
